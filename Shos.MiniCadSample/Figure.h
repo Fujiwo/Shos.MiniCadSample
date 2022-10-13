@@ -3,29 +3,13 @@
 #include <afx.h>
 #include <limits>
 #include <random>
+#include "FigureAttribute.h"
 #include "GdiObjectSelector.h"
 #include "Geometry.h"
 
 #ifdef max
 #undef max
 #endif // max
-
-struct FigureAttribute
-{
-	COLORREF color;
-	int      penWidth;
-
-	FigureAttribute() : color(RGB(0x00, 0x00, 0x00)), penWidth(0)
-	{}
-
-	void Serialize(CArchive& ar)
-	{
-		if (ar.IsStoring())
-			ar << color << penWidth;
-		else
-			ar >> color >> penWidth;
-	}
-};
 
 class Figure : public CObject
 {
@@ -67,7 +51,7 @@ public:
 	void Draw(CDC& dc) const
 	{
 		StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
-		CPen				pen(PS_SOLID, attribute.penWidth, attribute.color);
+		CPen				pen(PS_SOLID, attribute.GetPenWidth(), attribute.GetColor());
 		GdiObjectSelector   penSelector(dc, pen);
 
 		DrawShape(dc);
@@ -87,7 +71,7 @@ public:
 	CRect GetArea() const
 	{
 		auto area   = GetShapeArea();
-		auto  margin = attribute.penWidth + selectorSize + selectorPenWidth;
+		auto  margin = attribute.GetPenWidth() + selectorSize + selectorPenWidth;
 		area.InflateRect(margin, margin);
 		return area;
 	}
@@ -396,8 +380,8 @@ private:
 			figure = nullptr;
 			break;
 		}
-		figure->Attribute().color    = RandomColor();
-		figure->Attribute().penWidth = RandomValue(0, 5);
+		figure->Attribute().SetColor   (RandomColor()						  );
+		figure->Attribute().SetPenWidth(RandomValue(0, 5));
 		return figure;
 	}
 

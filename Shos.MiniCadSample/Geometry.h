@@ -15,6 +15,7 @@ public:
     {
         return x * x;
     }
+	
     static long Round(double x)
     {
         return static_cast<long>(floor(x + 0.5));
@@ -23,12 +24,12 @@ public:
     // absolute value
     static long Abs(CPoint point)
     {
-        return Round(sqrt(static_cast<double>(Square(point.x) + Square(point.y))));
+        return Round(sqrt(Square(static_cast<double>(point.x)) + Square(static_cast<double>(point.y))));
     }
 	
     static long Abs(CSize size)
     {
-        return Round(sqrt(static_cast<double>(Square(size.cx) + Square(size.cy))));
+        return Round(sqrt(Square(static_cast<double>(size.cx)) + Square(static_cast<double>(size.cy))));
     }
 
     static long GetDistance(CPoint point1, CPoint point2)
@@ -76,7 +77,7 @@ public:
 		auto d = point - rect.CenterPoint();
 		d.cx = Round(d.cx * rate);
 
-		auto distance = Abs(d) - rect.Height() / 2;
+		auto distance = abs(Abs(d) - rect.Height() / 2);
         distance = Round(distance / rate);
 
         return distance;

@@ -3,6 +3,7 @@
 #include <afx.h>
 #include "Observer.h"
 #include "Figure.h"
+#include "Application.h"
 
 struct Hint : public CObject
 {
@@ -17,6 +18,9 @@ struct Hint : public CObject
 	std::vector<Figure*> figures;
 	Type				 type;
 
+	Hint(Type type) : type(type)
+	{}
+
 	Hint(Type type, Figure* figure) : type(type)
 	{
 		figures.push_back(figure);
@@ -26,12 +30,15 @@ struct Hint : public CObject
 	{}
 };
 
-class Model : public Observable<Hint>
+class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
 	static const LONG size = 2000L;
 
 	std::vector<Figure*>   figures;
 	const Figure* highlightedFigure;
+
+	FigureAttribute currentFigureAttribute;
+	FigureAttribute* selectedFigureAttribute;
 
 public:
 	using iterator = std::vector<Figure*>::const_iterator;
@@ -39,7 +46,36 @@ public:
 	const CSize GetSize() const { return CSize(size, size); }
 	const CRect GetArea() const { return CRect(CPoint(), GetSize()); }
 
-	Model() : highlightedFigure(nullptr)
+	FigureAttribute& GetCurrentFigureAttribute()
+	{
+		return currentFigureAttribute;
+	}
+
+	void SetSelectedFigureAttribute(FigureAttribute& figureAttribute)
+	{
+		if (selectedFigureAttribute != nullptr)
+			selectedFigureAttribute->RemoveObserver(*this);
+
+		selectedFigureAttribute = &figureAttribute;
+		figureAttribute.AddObserver(*this);
+		Application::Set(figureAttribute);
+	}
+
+	void ResetSelectedFigureAttribute()
+	{
+		if (selectedFigureAttribute != nullptr)
+			selectedFigureAttribute->RemoveObserver(*this);
+
+		selectedFigureAttribute = nullptr;
+		Application::Set(currentFigureAttribute);
+	}
+	
+	virtual void Update(FigureAttribute& hint) override
+	{
+		NotifyObservers(Hint(Hint::Type::ViewOnly));
+	}
+
+	Model() : highlightedFigure(nullptr), selectedFigureAttribute(nullptr)
 	{}
 
 	virtual ~Model()
@@ -59,8 +95,10 @@ public:
 
 	void Add(Figure* figure)
 	{
+		ASSERT_VALID(figure);
+		figure->Attribute() = GetCurrentFigureAttribute();
 		figures.push_back(figure);
-		Update(Hint(Hint::Type::Added, figure));
+		NotifyObservers(Hint(Hint::Type::Added, figure));
 	}
 
 	bool Change(Figure* oldFigure, Figure* newFigure)
@@ -71,7 +109,7 @@ public:
 
 		*iterator = newFigure;
 		std::vector<Figure*> changedFigures = { oldFigure, newFigure };
-		Update(Hint(Hint::Type::Changed, changedFigures));
+		NotifyObservers(Hint(Hint::Type::Changed, changedFigures));
 		return true;
 	}
 
@@ -79,7 +117,7 @@ public:
 	{
 		ClearSelected();
 		figure.Select(true);
-		Update(Hint(Hint::Type::ViewOnly, std::vector<Figure*>()));
+		NotifyObservers(Hint(Hint::Type::ViewOnly));
 	}
 
 	void Hilight(const Figure* figure)
@@ -95,7 +133,7 @@ public:
 	void UnSelectAll()
 	{
 		ClearSelected();
-		Update(Hint(Hint::Type::ViewOnly, std::vector<Figure*>()));
+		NotifyObservers(Hint(Hint::Type::ViewOnly));
 	}
 
 	virtual void Serialize(CArchive& ar)
@@ -132,7 +170,7 @@ public:
 		//for (auto figure : newFigures)
 		//	figures.push_back(figure);
 
-		Update(Hint(Hint::Type::Added, newFigures));
+		NotifyObservers(Hint(Hint::Type::Added, newFigures));
 	}
 
 private:

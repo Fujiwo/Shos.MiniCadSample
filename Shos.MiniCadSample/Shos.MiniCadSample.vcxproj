@@ -185,9 +185,12 @@
   <ItemGroup>
     <ClInclude Include="ClipboardHelper.h" />
     <ClInclude Include="Command.h" />
+    <ClInclude Include="Common.h" />
     <ClInclude Include="Document.h" />
     <ClInclude Include="DoubleBuffer.h" />
     <ClInclude Include="Figure.h" />
+    <ClInclude Include="FigureAttribute.h" />
+    <ClInclude Include="FigureAttributeDialog.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GdiObjectSelector.h" />
     <ClInclude Include="Geometry.h" />
@@ -206,6 +209,7 @@
     <ClCompile Include="Document.cpp" />
     <ClCompile Include="DoubleBuffer.cpp" />
     <ClCompile Include="Figure.cpp" />
+    <ClCompile Include="FigureAttributeDialog.cpp" />
     <ClCompile Include="MainFrame.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

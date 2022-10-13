@@ -20,12 +20,12 @@ public:
 		observers.push_back(&observer);
 	}
 
-	void RemoveObserver(Observer<THint>& observer)
+	bool RemoveObserver(Observer<THint>& observer)
 	{
-		std::remove(observers.begin(), observers.end(), &observer);
+		return std::remove(observers.begin(), observers.end(), &observer) != observers.end();
 	}
 
-	void Update(THint& hint)
+	void NotifyObservers(THint& hint)
 	{
 		for (auto observer : observers)
 			observer->Update(hint);

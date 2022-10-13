@@ -3,6 +3,7 @@
 
 #include "DoubleBuffer.h"
 #include "ClipboardHelper.h"
+#include "MainFrame.h"
 
 class View : public
 #ifdef SCROLL_VIEW
@@ -24,13 +25,18 @@ protected:
 		return reinterpret_cast<Document&>(*m_pDocument);
 	}
 
-#ifdef SCROLL_VIEW
 	virtual void View::OnInitialUpdate() override
 	{
+#ifdef SCROLL_VIEW
 		DoubleBufferScrollView::OnInitialUpdate();
 		SetScrollSizes(MM_TEXT, GetDocument().GetSize());
-	}
 #endif // SCROLL_VIEW 
+
+		Document& document = GetDocument();
+		FigureAttribute& fa = document.GetCurrentFigureAttribute();
+		
+		Application::Set(GetDocument().GetCurrentFigureAttribute());
+	}
 
 #ifndef SCROLL_VIEW
 	virtual void OnPrepareDC(CDC* dc, CPrintInfo* pInfo = nullptr) override
