@@ -3,3 +3,4 @@
 
 IMPLEMENT_DYNCREATE(Command, CObject)
 IMPLEMENT_DYNCREATE(SelectCommand, Command)
+IMPLEMENT_DYNCREATE(LineCommand, Command)

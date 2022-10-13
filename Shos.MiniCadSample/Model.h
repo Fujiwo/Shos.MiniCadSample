@@ -166,10 +166,6 @@ public:
 	{
 		auto newFigures = FigureHelper::GetRandomFigures(count, GetArea());
 		std::for_each(newFigures.begin(), newFigures.end(), [&](Figure* figure) { figures.push_back(figure); });
-		
-		//for (auto figure : newFigures)
-		//	figures.push_back(figure);
-
 		NotifyObservers(Hint(Hint::Type::Added, newFigures));
 	}
 

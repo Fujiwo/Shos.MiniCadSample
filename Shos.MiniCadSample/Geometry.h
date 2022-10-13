@@ -112,4 +112,18 @@ public:
 		}
 		return true;
 	}
+
+    static int DPtoLP(CDC& dc, int size)
+    {
+        CRect rect(0, 0, size, size);
+        dc.DPtoLP(rect);
+        return rect.Width();
+    }
+
+    static int LPtoDP(CDC& dc, int size)
+    {
+        CRect rect(0, 0, size, size);
+        dc.LPtoDP(rect);
+        return rect.Width();
+    }
 };

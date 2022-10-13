@@ -17,8 +17,10 @@ public:
 	};
 
 private:
-	static const long	  cursorPenWidth = 3;
-	static const COLORREF cursorColor = RGB(0xff, 0x00, 0xff);
+	static const LONG	  cursorLength    = 100;
+	static const long	  cursorPenWidth  = 3;
+	static const COLORREF cursorColor     = RGB(0xff, 0x00, 0xff);
+	static const int      messageTextSize = 36;
 
 	CPoint  cursorPosition;
 	bool    cursorPositionExists;
@@ -48,8 +50,6 @@ private:
 		CPen pen(PS_SOLID, cursorPenWidth, cursorColor);
 		GdiObjectSelector penSelector(dc, pen);
 
-		const LONG cursorLength = 100;
-
 		auto deviceCursorPosition = cursorPosition;
 		dc.LPtoDP(&deviceCursorPosition);
 
@@ -69,6 +69,10 @@ private:
 	{
 		auto dcId = dc.SaveDC();
 
+		CFont   font;
+		CreateMessageFont(font, Geometry::DPtoLP(dc, messageTextSize));
+		dc.SelectObject(&font);
+
 		dc.SetTextColor(cursorColor);
 		dc.SetBkColor(Common::areaColor);
 		dc.SetBkMode(TRANSPARENT);
@@ -76,6 +80,21 @@ private:
 		dc.TextOut(cursorPosition.x, cursorPosition.y, messageHolder.GetMessage());
 
 		dc.RestoreDC(dcId);
+	}
+
+	static void CreateMessageFont(CFont& font, int textSize)
+	{
+		LOGFONT logFont;
+		::ZeroMemory(&logFont, sizeof(logFont));
+		logFont.lfHeight		 = textSize;
+		logFont.lfCharSet		 = DEFAULT_CHARSET;
+		logFont.lfOutPrecision	 = OUT_DEFAULT_PRECIS;
+		logFont.lfClipPrecision	 = CLIP_DEFAULT_PRECIS;
+		logFont.lfQuality		 = DEFAULT_QUALITY;
+		logFont.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
+		lstrcpy(logFont.lfFaceName, _T("Arial"));
+
+		font.CreateFontIndirect(&logFont);
 	}
 };
 
@@ -112,14 +131,14 @@ public:
 	void OnMouseMove(CPoint point)
 	{
 		cursor.SetCursorPosition(point);
-		OnCursotMove(point);
+		OnCursorMove(point);
 	}
 
 protected:
 	virtual void OnDraw(CDC& dc)
 	{}
 
-	virtual void OnCursotMove(CPoint point)
+	virtual void OnCursorMove(CPoint point)
 	{}
 
 	DECLARE_DYNCREATE(Command)
@@ -156,7 +175,7 @@ public:
 		}
 	}
 
-	virtual void OnCursotMove(CPoint point) override
+	virtual void OnCursorMove(CPoint point) override
 	{
 		auto nearestFigure = GetNearestFigure(point, &distanceToFigure);
 		if (nearestFigure != nullptr)
@@ -197,6 +216,52 @@ private:
 	}
 	
 	DECLARE_DYNCREATE(SelectCommand)
+};
+
+class LineCommand : public Command
+{
+	CPoint start;
+	bool   hasStart;
+	CPoint cursorPosition;
+
+public:
+	LineCommand() : hasStart(false)
+	{}
+	
+	virtual void OnDraw(CDC& dc) override
+	{
+		if (hasStart) {
+			LineFigure line(start, cursorPosition);
+			line.Attribute() = GetModel().GetCurrentFigureAttribute();
+			
+			line.Draw(dc);
+			//dc.MoveTo(start);
+			//dc.LineTo(cursorPosition);
+		}
+	}
+
+	virtual void OnClick(CPoint point) override
+	{
+		if (hasStart)
+			GetModel().Add(new LineFigure(start, point));
+		else
+			start = point;
+		hasStart = !hasStart;
+	}
+
+	virtual void OnCursorMove(CPoint point) override
+	{
+		cursorPosition = point;
+	}
+
+	virtual CString GetMessage() const override
+	{
+		CString message;
+		message.Format(_T("Click %s point."), hasStart ? _T("end") : _T("start"));
+		return message;
+	}
+
+	DECLARE_DYNCREATE(LineCommand)
 };
 
 class CommandManager

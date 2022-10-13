@@ -89,13 +89,29 @@ protected:
 		CDocument::DeleteContents();
 	}
 
+	afx_msg void OnFigureLine()
+	{
+		SetCommand(new LineCommand());
+	}
+
 	afx_msg void OnFigureRandom()
 	{
 		const size_t count = 10;
 		model.AddDummyData(count);
 	}
 
+	afx_msg void OnFigureSelect()
+	{
+		SetCommand(new SelectCommand());
+	}
+
 private:
+	void SetCommand(Command* command)
+	{
+		commandManager.SetCommand(command);
+		UpdateAllViews(nullptr);
+	}
+	
 	bool IsValid(CPoint point)
 	{
 		return GetArea().PtInRect(point);
