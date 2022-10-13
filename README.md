@@ -1,5 +1,7 @@
 # Shos.MiniCadSample
 
+![image](Documents/images/image01.png)
+
 Sample of simple CAD.
 
 * Functions
