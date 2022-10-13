@@ -17,10 +17,10 @@ public:
 	};
 
 private:
-	static const LONG	  cursorLength    = 100;
+	static const LONG	  cursorLength    = 120;
 	static const long	  cursorPenWidth  = 3;
 	static const COLORREF cursorColor     = RGB(0xff, 0x00, 0xff);
-	static const int      messageTextSize = 36;
+	static const int      messageTextSize = cursorLength / 3;
 
 	CPoint  cursorPosition;
 	bool    cursorPositionExists;
@@ -178,8 +178,7 @@ public:
 	virtual void OnCursorMove(CPoint point) override
 	{
 		auto nearestFigure = GetNearestFigure(point, &distanceToFigure);
-		if (nearestFigure != nullptr)
-			hasDistanceToFigure = true;
+		hasDistanceToFigure		  = (nearestFigure != nullptr);
 		GetModel().Hilight(nearestFigure);
 	}
 
@@ -211,7 +210,7 @@ private:
 			}
 		}
 		if (distance != nullptr)
-			*distance = minimumDistance;
+			*distance = nearestFigure == nullptr ? 0L : minimumDistance;
 		return nearestFigure;
 	}
 	
