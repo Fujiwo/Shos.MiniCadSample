@@ -21,6 +21,7 @@ private:
 	static const long	  cursorPenWidth  = 3;
 	static const COLORREF cursorColor     = RGB(0xff, 0x00, 0xff);
 	static const int      messageTextSize = cursorLength / 3;
+	static const int      messageMargin	  = 10;
 
 	CPoint  cursorPosition;
 	bool    cursorPositionExists;
@@ -69,15 +70,18 @@ private:
 	{
 		auto dcId = dc.SaveDC();
 
+		auto logicalMessageTextSize = Geometry::DPtoLP(dc, messageTextSize);
+		
 		CFont   font;
-		CreateMessageFont(font, Geometry::DPtoLP(dc, messageTextSize));
+		CreateMessageFont(font, logicalMessageTextSize);
 		dc.SelectObject(&font);
 
 		dc.SetTextColor(cursorColor);
 		dc.SetBkColor(Common::areaColor);
 		dc.SetBkMode(TRANSPARENT);
 
-		dc.TextOut(cursorPosition.x, cursorPosition.y, messageHolder.GetMessage());
+		auto logicalMessageMargin = Geometry::DPtoLP(dc, messageMargin);
+		dc.TextOut(cursorPosition.x + logicalMessageMargin, cursorPosition.y - logicalMessageTextSize - logicalMessageMargin, messageHolder.GetMessage());
 
 		dc.RestoreDC(dcId);
 	}
@@ -232,10 +236,7 @@ public:
 		if (hasStart) {
 			LineFigure line(start, cursorPosition);
 			line.Attribute() = GetModel().GetCurrentFigureAttribute();
-			
 			line.Draw(dc);
-			//dc.MoveTo(start);
-			//dc.LineTo(cursorPosition);
 		}
 	}
 
@@ -256,7 +257,10 @@ public:
 	virtual CString GetMessage() const override
 	{
 		CString message;
-		message.Format(_T("Click %s point."), hasStart ? _T("end") : _T("start"));
+		if (hasStart)
+			message.Format(_T("Click end point. (Length: %d)"), Geometry::GetDistance(start, cursorPosition));
+		else
+			message = _T("Click start point.");
 		return message;
 	}
 
