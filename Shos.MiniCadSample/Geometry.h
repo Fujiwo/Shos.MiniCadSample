@@ -79,7 +79,7 @@ public:
 		auto distance = Abs(d) - rect.Height() / 2;
         distance = Round(distance / rate);
 
-        return Round(distance);
+        return distance;
     }
 
     // inner product
