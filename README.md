@@ -16,6 +16,8 @@ Sample of simple CAD.
     * Command switching
     * Serialization
 	* Separation of model and view
+    * Scroll View
+	* View to fit window size
 
 * Development & Execution Environment
     * Language: C++
