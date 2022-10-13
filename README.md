@@ -1,12 +1,21 @@
 # Shos.MiniCadSample
 
-Sample of copying and pasting to the clipboard.
+Sample of simple CAD.
 
-* Clipboard operations:
-    * Copy to:
-      Extended metafiles, bitmaps, and custom format
-    * Paste from:
-      Custom format
+* Functions
+    * Clipboard operation
+        * Copy to:
+          Extended metafiles, bitmaps, and custom format
+        * Paste from:
+          Custom format
+    * Double Buffering
+    * Modeless Dialog
+    * Notification by Observer Pattern
+    * Rubberband
+    * Figure selection
+    * Command switching
+    * Serialization
+	* Separation of model and view
 
 * Development & Execution Environment
     * Language: C++
