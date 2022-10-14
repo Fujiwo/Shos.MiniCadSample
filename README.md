@@ -20,6 +20,7 @@ Sample of simple CAD.
 	* Separation of model and view
     * Scroll View
 	* View to fit window size
+	* Zoom View
 
 * Development & Execution Environment
     * Language: C++

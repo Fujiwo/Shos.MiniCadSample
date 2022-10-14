@@ -1,5 +1,6 @@
 ﻿#pragma once
 //#define SCROLL_VIEW
+#define ZOOMING_VIEW
 
 #include "DoubleBuffer.h"
 #include "ClipboardHelper.h"
@@ -36,6 +37,10 @@ protected:
 		FigureAttribute& fa = document.GetCurrentFigureAttribute();
 		
 		Application::Set(GetDocument().GetCurrentFigureAttribute());
+
+#ifdef ZOOMING_VIEW
+		logicalArea = GetDocument().GetArea();
+#endif // ZOOMING_VIEW
 	}
 
 #ifndef SCROLL_VIEW
@@ -45,12 +50,17 @@ protected:
 
 		dc->SetMapMode(MM_ISOTROPIC);
 
+#ifdef ZOOMING_VIEW
+		dc->SetWindowOrg(logicalArea.CenterPoint());
+		dc->SetWindowExt(logicalArea.Size());
+#elif // ZOOMING_VIEW
 		auto documentArea = GetDocument().GetArea();
 		dc->SetWindowOrg(documentArea.CenterPoint());
 		dc->SetWindowExt(documentArea.Size());
+#endif // ZOOMING_VIEW
 
 		CRect clientRect;
-		GetClientRect(&clientRect);
+		GetClientRect(clientRect);
 		dc->SetViewportOrg(clientRect.CenterPoint());
 		dc->SetViewportExt(clientRect.Size());
 	}
@@ -121,6 +131,37 @@ protected:
 		GetDocument().OnMouseMove(DPtoLP(point));
 		Invalidate();
 	}
+
+#ifdef ZOOMING_VIEW
+	CRect logicalArea;
+#endif // ZOOMING_VIEW
+
+#ifdef ZOOMING_VIEW
+	afx_msg BOOL OnMouseWheel(UINT keys, short delta, CPoint point)
+	{
+		if ((keys & MK_CONTROL) != 0) {
+			DPtoLP(point);
+
+			const auto deltaValue = delta / (double)WHEEL_DELTA;
+			
+			const auto denominator = 10.0;
+			auto newLogicalArea = logicalArea;
+			Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
+			SetLogicalArea(newLogicalArea);
+		}
+		return DoubleBufferView::OnMouseWheel(keys, delta, point);
+	}
+#endif // ZOOMING_VIEW
+
+#ifdef ZOOMING_VIEW
+	void SetLogicalArea(const CRect& area)
+	{
+		logicalArea = area;
+		logicalArea.IntersectRect(logicalArea, GetDocument().GetArea());
+		Update();
+		Invalidate();
+	}
+#endif // ZOOMING_VIEW
 
 	afx_msg void OnDestroyClipboard()
 	{

@@ -126,4 +126,18 @@ public:
         dc.LPtoDP(rect);
         return rect.Width();
     }
+
+    static void Enlarge(CRect& rect, CPoint basePoint, double rate)
+    {
+        Enlarge(rect.left  , basePoint.x, rate);
+        Enlarge(rect.top   , basePoint.y, rate);
+        Enlarge(rect.right , basePoint.x, rate);
+        Enlarge(rect.bottom, basePoint.y, rate);
+    }
+	
+private:
+    static void Enlarge(long& value, long base, double rate)
+    {
+        value = Round(base + (value - base) * rate);
+    }
 };
