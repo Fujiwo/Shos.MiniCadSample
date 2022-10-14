@@ -1,7 +1,6 @@
 #pragma once
 #include <afx.h>
 #include <limits>
-#include "Common.h"
 #include "Model.h"
 
 class Cursor
@@ -94,7 +93,6 @@ private:
 		dc.SelectObject(&font);
 
 		dc.SetTextColor(cursorColor);
-		dc.SetBkColor(Common::areaColor);
 		dc.SetBkMode(TRANSPARENT);
 
 		auto logicalMessageMargin = Geometry::DPtoLP(dc, messageMargin);

@@ -63,9 +63,6 @@
     <ClInclude Include="DoubleBuffer.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="Common.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="FigureAttributeDialog.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>

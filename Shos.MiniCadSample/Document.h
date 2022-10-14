@@ -1,11 +1,12 @@
 ﻿#pragma once
 
-#include "Common.h"
 #include "Model.h"
 #include "Command.h"
 
 class Document : public CDocument, public Observer<Hint>
 {
+	static const COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
+
 	Model		   model;
 	CommandManager commandManager;
 
@@ -50,7 +51,7 @@ public:
 
 	void DrawArea(CDC& dc) const
 	{
-		dc.FillSolidRect(GetArea(), Common::areaColor);
+		dc.FillSolidRect(GetArea(), areaColor);
 	}
 
 	void DrawCommand(CDC& dc)
