@@ -38,6 +38,13 @@ public:
 	Figure(const Figure& another) : attribute(another.attribute), selected(another.selected)
 	{}
 
+	Figure& operator =(const Figure& another)
+	{
+		attribute = another.attribute;
+		selected  = another.selected ;
+		return *this;
+	}
+
 	void Select(bool selected)
 	{
 		this->selected = selected;
@@ -137,6 +144,13 @@ public:
 	DotFigure(const CPoint& position) : position(position)
 	{}
 
+	DotFigure& operator =(const DotFigure& another)
+	{
+		Figure::operator =(another);
+		position = another.position;
+		return *this;
+	}
+
 	virtual Figure* Clone() override
 	{
 		return new DotFigure(*this);
@@ -191,6 +205,14 @@ public:
 
 	LineFigure(CPoint start, CPoint end) : start(start), end(end)
 	{}
+
+	LineFigure& operator =(const LineFigure& another)
+	{
+		Figure::operator =(another);
+		start = another.start;
+		end = another.end;
+		return *this;
+	}
 
 	virtual Figure* Clone() override
 	{
@@ -251,6 +273,13 @@ public:
 		this->position.NormalizeRect();
 	}
 
+	RectangleFigureBase& operator =(const RectangleFigureBase& another)
+	{
+		Figure::operator =(another);
+		position = another.position;
+		return *this;
+	}
+
 	virtual void Serialize(CArchive& ar) override
 	{
 		Figure::Serialize(ar);
@@ -284,6 +313,12 @@ public:
 	RectangleFigure(const CRect& position) : RectangleFigureBase(position)
 	{}
 
+	RectangleFigure& operator =(const RectangleFigure& another)
+	{
+		RectangleFigureBase::operator =(another);
+		return *this;
+	}
+
 	virtual Figure* Clone() override
 	{
 		return new RectangleFigure(*this);
@@ -311,6 +346,12 @@ public:
 
 	EllipseFigure(const CRect& position) : RectangleFigureBase(position)
 	{}
+
+	EllipseFigure& operator =(const EllipseFigure& another)
+	{
+		RectangleFigureBase::operator =(another);
+		return *this;
+	}
 
 	virtual Figure* Clone() override
 	{

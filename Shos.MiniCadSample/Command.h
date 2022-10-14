@@ -221,32 +221,39 @@ private:
 	DECLARE_DYNCREATE(SelectCommand)
 };
 
-class LineCommand : public Command
+class AddFigureCommand : public Command
 {
-	CPoint start;
-	bool   hasStart;
-	CPoint cursorPosition;
+	CPoint				cursorPosition;
+	std::vector<CPoint> points;
 
 public:
-	LineCommand() : hasStart(false)
+	AddFigureCommand()
 	{}
-	
+
 	virtual void OnDraw(CDC& dc) override
 	{
-		if (hasStart) {
-			LineFigure line(start, cursorPosition);
-			line.Attribute() = GetModel().GetCurrentFigureAttribute();
-			line.Draw(dc);
+		if (GetCount() > 0) {
+			auto figure = GetFigure(cursorPosition);
+			if (figure == nullptr)
+				return;
+			figure->Attribute() = GetModel().GetCurrentFigureAttribute();
+			figure->Draw(dc);
 		}
 	}
 
 	virtual void OnClick(CPoint point) override
 	{
-		if (hasStart)
-			GetModel().Add(new LineFigure(start, point));
+		if (Input(GetCount(), point))
+			points.push_back(point);
 		else
-			start = point;
-		hasStart = !hasStart;
+			return;
+
+		if (GetCount() == GetMaxCount()) {
+			auto figure = CreateFigure();
+			ASSERT_VALID(figure);
+			GetModel().Add(figure);
+			points.clear();
+		}
 	}
 
 	virtual void OnCursorMove(CPoint point) override
@@ -254,11 +261,62 @@ public:
 		cursorPosition = point;
 	}
 
+protected:
+	size_t GetCount() const
+	{
+		return points.size();
+	}
+
+	CPoint GetPoint(size_t index) const
+	{
+		return points[index];
+	}
+
+	CPoint GetCursorPosition() const
+	{
+		return cursorPosition;
+	}
+
+	virtual Figure* GetFigure(CPoint cursorPosition) = 0;
+	virtual Figure* CreateFigure() = 0;
+
+	virtual size_t GetMaxCount() const
+	{
+		return 2;
+	}
+
+	virtual bool Input(size_t count, CPoint point)
+	{
+		return true;
+	}
+};
+
+class LineCommand : public AddFigureCommand
+{
+	LineFigure figure;
+
+protected:
+	virtual Figure* GetFigure(CPoint cursorPosition) override
+	{
+		figure = LineFigure(GetPoint(0), cursorPosition);
+		return &figure;
+	}
+
+	virtual Figure* CreateFigure() override
+	{
+		return new LineFigure(GetPoint(0), GetPoint(1));
+	}
+
+	virtual size_t GetMaxCount() const
+	{
+		return 2;
+	}
+
 	virtual CString GetMessage() const override
 	{
 		CString message;
-		if (hasStart)
-			message.Format(_T("Click end point. (Length: %d)"), Geometry::GetDistance(start, cursorPosition));
+		if (GetCount() > 0)
+			message.Format(_T("Click end point. (Length: %d)"), Geometry::GetDistance(GetPoint(0), GetCursorPosition()));
 		else
 			message = _T("Click start point.");
 		return message;
