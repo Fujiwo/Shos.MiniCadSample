@@ -21,7 +21,13 @@ Sample of simple CAD.
     * Scroll View
 	* View to fit window size
 	* Zoom View
-
+    * Figures
+        * Dot
+        * Line segment
+        * Rectangle
+        * Ellipse
+        * Random
+		
 * Development & Execution Environment
     * Language: C++
     * Framework: MFC
