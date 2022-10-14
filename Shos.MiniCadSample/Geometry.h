@@ -138,6 +138,6 @@ public:
 private:
     static void Enlarge(long& value, long base, double rate)
     {
-        value = Round(base + (value - base) * rate);
+        value = Round(static_cast<double>(base) + (value - base) * rate);
     }
 };

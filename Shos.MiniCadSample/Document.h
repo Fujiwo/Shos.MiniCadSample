@@ -89,9 +89,44 @@ protected:
 		CDocument::DeleteContents();
 	}
 
+	afx_msg void OnFigureDot()
+	{
+		SetCommand(new DotCommand());
+	}
+
+	afx_msg void OnUpdateFigureDot(CCmdUI* cmdUI)
+	{
+		cmdUI->SetCheck(commandManager.IsRunning(RUNTIME_CLASS(DotCommand)) ? 1 : 0);
+	}
+
 	afx_msg void OnFigureLine()
 	{
 		SetCommand(new LineCommand());
+	}
+
+	afx_msg void OnUpdateFigureLine(CCmdUI* cmdUI)
+	{
+		cmdUI->SetCheck(commandManager.IsRunning(RUNTIME_CLASS(LineCommand)) ? 1 : 0);
+	}
+
+	afx_msg void OnFigureRectangle()
+	{
+		SetCommand(new RectangleCommand());
+	}
+
+	afx_msg void OnUpdateFigureRectangle(CCmdUI* cmdUI)
+	{
+		cmdUI->SetCheck(commandManager.IsRunning(RUNTIME_CLASS(RectangleCommand)) ? 1 : 0);
+	}
+
+	afx_msg void OnFigureEllipse()
+	{
+		SetCommand(new EllipseCommand());
+	}
+
+	afx_msg void OnUpdateFigureEllipse(CCmdUI* cmdUI)
+	{
+		cmdUI->SetCheck(commandManager.IsRunning(RUNTIME_CLASS(EllipseCommand)) ? 1 : 0);
 	}
 
 	afx_msg void OnFigureRandom()
@@ -103,6 +138,11 @@ protected:
 	afx_msg void OnFigureSelect()
 	{
 		SetCommand(new SelectCommand());
+	}
+
+	afx_msg void OnUpdateFigureSelect(CCmdUI* cmdUI)
+	{
+		cmdUI->SetCheck(commandManager.IsRunning(RUNTIME_CLASS(SelectCommand)) ? 1 : 0);
 	}
 
 private:

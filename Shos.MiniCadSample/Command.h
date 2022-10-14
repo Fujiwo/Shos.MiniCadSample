@@ -10,6 +10,23 @@ public:
 	class MessageHolder
 	{
 	public:
+		virtual CString GetTextline() const
+		{
+			CString textline;
+			auto name = GetName();
+			if (name.IsEmpty())
+				textline.Format(_T("%s"), GetMessage());
+			else
+				textline.Format(_T("[%s] %s"), GetName(), GetMessage());
+			return textline;
+		}
+
+	protected:
+		virtual CString GetName() const
+		{
+			return CString();
+		}
+
 		virtual CString GetMessage() const
 		{
 			return CString();
@@ -81,7 +98,7 @@ private:
 		dc.SetBkMode(TRANSPARENT);
 
 		auto logicalMessageMargin = Geometry::DPtoLP(dc, messageMargin);
-		dc.TextOut(cursorPosition.x + logicalMessageMargin, cursorPosition.y - logicalMessageTextSize - logicalMessageMargin, messageHolder.GetMessage());
+		dc.TextOut(cursorPosition.x + logicalMessageMargin, cursorPosition.y - logicalMessageTextSize - logicalMessageMargin, messageHolder.GetTextline());
 
 		dc.RestoreDC(dcId);
 	}
@@ -159,6 +176,7 @@ public:
 	SelectCommand() : hasDistanceToFigure(false), distanceToFigure(0L)
 	{}
 
+protected:
 	virtual void OnDraw(CDC& dc) override
 	{
 		if (GetModel().Hilight() != nullptr)
@@ -184,6 +202,11 @@ public:
 		auto nearestFigure = GetNearestFigure(point, &distanceToFigure);
 		hasDistanceToFigure		  = (nearestFigure != nullptr);
 		GetModel().Hilight(nearestFigure);
+	}
+
+	virtual CString GetName() const
+	{
+		return _T("Select");
 	}
 
 	virtual CString GetMessage() const override
@@ -230,6 +253,7 @@ public:
 	AddFigureCommand()
 	{}
 
+protected:
 	virtual void OnDraw(CDC& dc) override
 	{
 		if (GetCount() > 0) {
@@ -291,6 +315,42 @@ protected:
 	}
 };
 
+class DotCommand : public AddFigureCommand
+{
+	DotFigure figure;
+
+protected:
+	virtual Figure* GetFigure(CPoint cursorPosition) override
+	{
+		figure = DotFigure(cursorPosition);
+		return &figure;
+	}
+
+	virtual Figure* CreateFigure() override
+	{
+		return new DotFigure(GetPoint(0));
+	}
+
+	virtual size_t GetMaxCount() const
+	{
+		return 1;
+	}
+
+	virtual CString GetName() const
+	{
+		return _T("Dot");
+	}
+
+	virtual CString GetMessage() const override
+	{
+		CString message;
+		message.Format(_T("Click the point. (x: %d, y: %d)"), GetCursorPosition().x, GetCursorPosition().y);
+		return message;
+	}
+
+	DECLARE_DYNCREATE(DotCommand)
+};
+
 class LineCommand : public AddFigureCommand
 {
 	LineFigure figure;
@@ -312,6 +372,11 @@ protected:
 		return 2;
 	}
 
+	virtual CString GetName() const
+	{
+		return _T("Line");
+	}
+
 	virtual CString GetMessage() const override
 	{
 		CString message;
@@ -323,6 +388,76 @@ protected:
 	}
 
 	DECLARE_DYNCREATE(LineCommand)
+};
+
+class RectangleBaseCommand : public AddFigureCommand
+{
+protected:
+	virtual size_t GetMaxCount() const
+	{
+		return 2;
+	}
+
+	virtual CString GetMessage() const override
+	{
+		CString message;
+		if (GetCount() > 0) {
+			CRect rect(GetPoint(0), GetCursorPosition());
+			rect.NormalizeRect();
+			message.Format(_T("Click another point. (Width: %d, Height: %d)"), rect.Width(), rect.Height());
+		} else {
+			message = _T("Click point.");
+		}
+		return message;
+	}
+};
+
+class RectangleCommand : public RectangleBaseCommand
+{
+	RectangleFigure figure;
+
+protected:
+	virtual Figure* GetFigure(CPoint cursorPosition) override
+	{
+		figure = RectangleFigure(CRect(GetPoint(0), cursorPosition));
+		return &figure;
+	}
+
+	virtual Figure* CreateFigure() override
+	{
+		return new RectangleFigure(CRect(GetPoint(0), GetPoint(1)));
+	}
+
+	virtual CString GetName() const
+	{
+		return _T("Rectangle");
+	}
+
+	DECLARE_DYNCREATE(RectangleCommand)
+};
+
+class EllipseCommand : public RectangleBaseCommand
+{
+	EllipseFigure figure;
+
+protected:
+	virtual Figure* GetFigure(CPoint cursorPosition) override
+	{
+		figure = EllipseFigure(CRect(GetPoint(0), cursorPosition));
+		return &figure;
+	}
+
+	virtual Figure* CreateFigure() override
+	{
+		return new EllipseFigure(CRect(GetPoint(0), GetPoint(1)));
+	}
+
+	virtual CString GetName() const
+	{
+		return _T("Ellipse");
+	}
+
+	DECLARE_DYNCREATE(EllipseCommand)
 };
 
 class CommandManager
@@ -339,6 +474,11 @@ public:
 	virtual ~CommandManager()
 	{
 		delete currentCommand;
+	}
+
+	bool IsRunning(CRuntimeClass* commandRuntimeClass) const
+	{
+		return currentCommand == nullptr ? false : currentCommand->IsKindOf(commandRuntimeClass);
 	}
 	
 	void SetCommand(Command* command)
