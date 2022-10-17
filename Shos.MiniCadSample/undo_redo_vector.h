@@ -165,7 +165,7 @@ public:
 		if (undo_steps_index == 0)
 			return false;
 
-		undo_steps[undo_steps_index - 1].undo();
+		undo_steps[undo_steps_index - 1]->undo();
 		undo_steps_index--;
 		return true;
 	}
