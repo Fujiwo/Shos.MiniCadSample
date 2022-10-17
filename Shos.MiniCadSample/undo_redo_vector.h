@@ -24,20 +24,20 @@ class undo_redo_vector
 		static undo_step* add(std::vector<TElement>& collection, TElement element)
 		{
 			collection.push_back(element);
-			return new undo_step(collection, operation::add, collection.size() - 1);
+			return new undo_step(collection, operation_type::add, collection.size() - 1);
 		}
 
 		static undo_step* remove(std::vector<TElement>& collection, size_t index)
 		{
 			auto element = collection[index];
 			collection.erase(collection.begin() + index);
-			return new undo_step(collection, operation::remove, index, element);
+			return new undo_step(collection, operation_type::remove, index, element);
 		}
 
 		static undo_step* update(std::vector<TElement>& collection, size_t index, TElement element)
 		{
 			std::swap(element, collection[index]);
-			return new undo_step(collection, operation::update, index, element);
+			return new undo_step(collection, operation_type::update, index, element);
 		}
 
 		virtual void undo()
@@ -117,6 +117,11 @@ public:
 		for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
 	}
 
+	const TElement& operator[](size_t index) const
+	{
+		return data[index];
+	}
+
 	size_t size() const
 	{
 		return data.size();
@@ -186,7 +191,7 @@ public:
 	}
 
 private:
-	void push(const undo_step& step)
+	void push(undo_step* step)
 	{
 		if (undo_steps_index != undo_steps.size()) {
 			for_each(undo_steps.begin() + undo_steps_index, undo_steps.end(), [](undo_step* step) { delete step; });
