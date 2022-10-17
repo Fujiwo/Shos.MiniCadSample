@@ -200,7 +200,7 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="UndoRedoArray.h" />
+    <ClInclude Include="undo_redo_vector.h" />
     <ClInclude Include="View.h" />
   </ItemGroup>
   <ItemGroup>

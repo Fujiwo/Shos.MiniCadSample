@@ -69,7 +69,7 @@
     <ClInclude Include="FigureAttribute.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="UndoRedoArray.h">
+    <ClInclude Include="undo_redo_vector.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

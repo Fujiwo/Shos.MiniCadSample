@@ -4,6 +4,7 @@
 #include "Observer.h"
 #include "Figure.h"
 #include "Application.h"
+#include "undo_redo_vector.h"
 
 struct Hint : public CObject
 {
@@ -33,6 +34,8 @@ struct Hint : public CObject
 class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
 	static const LONG size = 2000L;
+
+	undo_redo_vector<std::vector<Figure*>, Figure*> figures1; // ToDo:
 
 	std::vector<Figure*>   figures;
 	const Figure* highlightedFigure;
