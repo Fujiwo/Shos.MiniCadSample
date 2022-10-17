@@ -35,7 +35,7 @@ class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
 	static const LONG size = 2000L;
 
-	undo_redo_vector<std::vector<Figure*>, Figure*> figures1; // ToDo:
+	undo_redo_vector<Figure*> figures1; // ToDo:
 
 	std::vector<Figure*>   figures;
 	const Figure* highlightedFigure;

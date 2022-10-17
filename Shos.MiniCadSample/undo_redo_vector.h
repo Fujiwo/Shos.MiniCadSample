@@ -1,8 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 
-template <typename TCollection, typename TElement>
+template <typename TElement>
 class undo_redo_vector
 {
 	class undo_step
@@ -14,26 +15,26 @@ class undo_redo_vector
 			update
 		};
 		
-		TCollection&   collection;
-		operation_type operation;
-		size_t         index;
-		TElement       element;
+		std::vector<TElement>&  collection;
+		operation_type			operation;
+		size_t					index;
+		TElement				element;
 		
 	public:
-		static undo_step* add(TCollection& collection, TElement element)
+		static undo_step* add(std::vector<TElement>& collection, TElement element)
 		{
 			collection.push_back(element);
 			return new undo_step(collection, operation::add, collection.size() - 1);
 		}
 
-		static undo_step* remove(TCollection& collection, size_t index)
+		static undo_step* remove(std::vector<TElement>& collection, size_t index)
 		{
 			auto element = collection[index];
 			collection.erase(collection.begin() + index);
 			return new undo_step(collection, operation::remove, index, element);
 		}
 
-		static undo_step* update(TCollection& collection, size_t index, TElement element)
+		static undo_step* update(std::vector<TElement>& collection, size_t index, TElement element)
 		{
 			std::swap(element, collection[index]);
 			return new undo_step(collection, operation::update, index, element);
@@ -60,10 +61,10 @@ class undo_redo_vector
 		}
 
 	private:
-		undo_step(TCollection& collection, operation_type operation, size_t index) : collection(collection), index(index), operation(operation)
+		undo_step(std::vector<TElement>& collection, operation_type operation, size_t index) : collection(collection), index(index), operation(operation)
 		{}
 
-		undo_step(TCollection& collection, operation_type operation, size_t index, TElement element) : collection(collection), index(index), operation(operation)
+		undo_step(std::vector<TElement>& collection, operation_type operation, size_t index, TElement element) : collection(collection), index(index), operation(operation)
 		{}
 	};
 
@@ -114,6 +115,11 @@ public:
 	virtual ~undo_redo_vector()
 	{
 		for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
+	}
+
+	size_t size() const
+	{
+		return data.size();
 	}
 
 	iterator begin()
