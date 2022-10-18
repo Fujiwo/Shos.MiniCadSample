@@ -8,13 +8,16 @@ class undo_redo_vector
 {
 	class undo_step
 	{
+	protected:
 		enum class operation_type
 		{
 			add	  ,
 			remove,
-			update
+			update,
+			group
 		};
-		
+
+	private:
 		std::vector<TElement>&  collection;
 		operation_type			operation;
 		size_t					index;
@@ -60,11 +63,20 @@ class undo_redo_vector
 			}
 		}
 
-	private:
-		undo_step(std::vector<TElement>& collection, operation_type operation, size_t index) : collection(collection), index(index), operation(operation)
+		virtual void redo()
+		{
+			undo();
+		}
+
+	protected:
+		undo_step(std::vector<TElement>& collection, operation_type operation) : collection(collection), operation(operation), index(0), element()
 		{}
 
-		undo_step(std::vector<TElement>& collection, operation_type operation, size_t index, TElement element) : collection(collection), index(index), operation(operation)
+	private:
+		undo_step(std::vector<TElement>& collection, operation_type operation, size_t index) : collection(collection), operation(operation), index(index), element()
+		{}
+
+		undo_step(std::vector<TElement>& collection, operation_type operation, size_t index, TElement element) : collection(collection), operation(operation), index(index), element(element)
 		{}
 	};
 
@@ -73,14 +85,22 @@ class undo_redo_vector
 		std::vector<undo_step*> undo_steps;
 
 	public:
-		using iterator = typename std::vector<undo_step>::pointer;
+		using iterator = typename std::vector<undo_step*>::pointer;
 
+		undo_step_group(std::vector<TElement>& collection) : undo_step(collection, operation_type::group)
+		{}
+		
 		virtual ~undo_step_group()
 		{
 			for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
 		}
 
-		void push_back(undo_step step)
+		size_t size() const
+		{
+			return undo_steps.size();
+		}
+
+		void push_back(undo_step* step)
 		{
 			undo_steps.push_back(step);
 		}
@@ -97,24 +117,31 @@ class undo_redo_vector
 
 		virtual void undo() override
 		{
+			for_each(undo_steps.rbegin(), undo_steps.rend(), [](undo_step* step) { step->undo(); });
+		}
+
+		virtual void redo() override
+		{
 			for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { step->undo(); });
 		}
 	};
 
-	std::vector<TElement> data;
+	std::vector<TElement>   data;
 	
-	size_t undo_steps_index;
+	size_t					undo_steps_index;
 	std::vector<undo_step*> undo_steps;
+	undo_step_group*		current_undo_step_group;
 
 public:
-	using iterator = typename std::vector<TElement>::pointer;
+	using iterator = typename std::vector<TElement>::iterator;
 	
-	undo_redo_vector() : undo_steps_index(0)
+	undo_redo_vector() : undo_steps_index(0), current_undo_step_group(nullptr)
 	{}
 
 	virtual ~undo_redo_vector()
 	{
 		for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
+		delete current_undo_step_group;
 	}
 
 	const TElement& operator[](size_t index) const
@@ -137,10 +164,12 @@ public:
 		return data.end();
 	}
 
-	//void clear()
-	//{
-	//	data.clear();
-	//}
+	void clear()
+	{
+		transaction transaction(*this);
+		while (data.size() > 0)
+			erase(begin());
+	}
 
 	void push_back(TElement element)
 	{
@@ -148,7 +177,7 @@ public:
 		push(step);
 	}
 
-	void erace(iterator iterator)
+	void erase(iterator iterator)
 	{
 		auto step = undo_step::remove(data, iterator - data.begin());
 		push(step);
@@ -156,7 +185,7 @@ public:
 
 	void update(iterator iterator, TElement element)
 	{
-		auto step = undo_step::update(collection, iterator - data.begin(), element);
+		auto step = undo_step::update(data, iterator - data.begin(), element);
 		push(step);
 	}
 
@@ -175,7 +204,7 @@ public:
 		if (undo_steps_index == undo_steps.size())
 			return false;
 
-		undo_steps[undo_steps_index].undo();
+		undo_steps[undo_steps_index]->redo();
 		undo_steps_index++;
 		return true;
 	}
@@ -190,8 +219,52 @@ public:
 		return undo_steps_index != undo_steps.size();
 	}
 
+	class transaction
+	{
+		undo_redo_vector<TElement>& collection;
+		
+	public:
+		transaction(undo_redo_vector<TElement>& collection) : collection(collection)
+		{
+			collection.begin_transaction();
+		}
+
+		virtual ~transaction()
+		{
+			collection.end_transaction();
+		}
+	};
+	
 private:
+	void begin_transaction()
+	{
+		if (current_undo_step_group != nullptr)
+			throw std::exception();
+
+		current_undo_step_group = new undo_step_group(data);
+	}
+
+	void end_transaction()
+	{
+		if (current_undo_step_group == nullptr)
+			throw std::exception();
+
+		if (current_undo_step_group->size() == 0)
+			delete current_undo_step_group;
+		else
+			push_to_steps(current_undo_step_group);
+		current_undo_step_group = nullptr;
+	}
+	
 	void push(undo_step* step)
+	{
+		if (current_undo_step_group == nullptr)
+			push_to_steps(step);
+		else
+			push_to_group(step);
+	}
+
+	void push_to_steps(undo_step* step)
 	{
 		if (undo_steps_index != undo_steps.size()) {
 			for_each(undo_steps.begin() + undo_steps_index, undo_steps.end(), [](undo_step* step) { delete step; });
@@ -200,5 +273,13 @@ private:
 
 		undo_steps.push_back(step);
 		undo_steps_index++;
+	}
+
+	void push_to_group(undo_step* step)
+	{
+		if (current_undo_step_group == nullptr)
+			throw std::exception();
+
+		current_undo_step_group->push_back(step);
 	}
 };
