@@ -10,6 +10,7 @@ Sample of simple CAD.
           Extended metafiles, bitmaps, and custom format
         * Paste from:
           Custom format
+    * Undo / Redo
     * Double Buffering
     * Modeless Dialog
     * Notification by Observer Pattern
