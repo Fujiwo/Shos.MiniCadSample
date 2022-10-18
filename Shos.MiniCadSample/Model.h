@@ -13,6 +13,7 @@ struct Hint : public CObject
 		Added   ,
 		Removed ,
 		Changed ,
+		All		,
 		ViewOnly
 	};
 
@@ -35,16 +36,16 @@ class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
 	static const LONG size = 2000L;
 
-	undo_redo_vector<Figure*> figures1; // ToDo:
-
-	std::vector<Figure*>   figures;
+	//std::vector<Figure*>   figures;
+	undo_redo_vector<Figure*>   figures;
 	const Figure* highlightedFigure;
 
 	FigureAttribute currentFigureAttribute;
 	FigureAttribute* selectedFigureAttribute;
 
 public:
-	using iterator = std::vector<Figure*>::const_iterator;
+	//using iterator = std::vector<Figure*>::const_iterator;
+	using iterator = undo_redo_vector<Figure*>::const_iterator;
 
 	const CSize GetSize() const { return CSize(size, size); }
 	const CRect GetArea() const { return CRect(CPoint(), GetSize()); }
@@ -88,12 +89,12 @@ public:
 
 	iterator begin() const
 	{
-		return figures.begin();
+		return figures.cbegin();
 	}
 
 	iterator end() const
 	{
-		return figures.end();
+		return figures.cend();
 	}
 
 	void Add(Figure* figure)
@@ -121,6 +122,28 @@ public:
 		ClearSelected();
 		figure.Select(true);
 		NotifyObservers(Hint(Hint::Type::ViewOnly));
+	}
+
+	void Undo()
+	{
+		if (figures.undo())
+			NotifyObservers(Hint(Hint::Type::All));
+	}
+
+	bool CanUndo() const
+	{
+		return figures.can_undo();
+	}
+
+	void Redo()
+	{
+		if (figures.redo())
+			NotifyObservers(Hint(Hint::Type::All));
+	}
+
+	bool CanRedo() const
+	{
+		return figures.can_redo();
 	}
 
 	void Hilight(const Figure* figure)
@@ -168,13 +191,13 @@ public:
 	void AddDummyData(size_t count)
 	{
 		auto newFigures = FigureHelper::GetRandomFigures(count, GetArea());
-		std::for_each(newFigures.begin(), newFigures.end(), [&](Figure* figure) { figures.push_back(figure); });
+		std::for_each(newFigures.cbegin(), newFigures.cend(), [&](Figure* figure) { figures.push_back(figure); });
 		NotifyObservers(Hint(Hint::Type::Added, newFigures));
 	}
 
 private:
 	void ClearSelected()
 	{
-		std::for_each(figures.begin(), figures.end(), [](Figure* figure) { figure->Select(false); });
+		std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
 	}
 };

@@ -86,7 +86,7 @@ protected:
 	{
 		Update();
 
-		if (pHint == nullptr || static_cast<Hint*>(pHint)->type == Hint::Type::ViewOnly) {
+		if (pHint == nullptr || static_cast<Hint*>(pHint)->type == Hint::Type::All || static_cast<Hint*>(pHint)->type == Hint::Type::ViewOnly) {
 			#ifdef SCROLL_VIEW
 			DoubleBufferScrollView
 			#else // SCROLL_VIEW
@@ -120,7 +120,7 @@ protected:
 	{
 		ClipboardHelper::OnEditPaste(GetDocument(), *this);
 	}
-
+	
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point)
 	{
 		GetDocument().OnClick(DPtoLP(point));

@@ -90,6 +90,26 @@ protected:
 		CDocument::DeleteContents();
 	}
 
+	afx_msg void OnEditUndo()
+	{
+		model.Undo();
+	}
+	
+	afx_msg void OnUpdateEditUndo(CCmdUI* cmdUI)
+	{
+		cmdUI->Enable(model.CanUndo() ? 1 : 0);
+	}
+
+	afx_msg void OnEditRedo()
+	{
+		model.Redo();
+	}
+
+	afx_msg void OnUpdateEditRedo(CCmdUI* cmdUI)
+	{
+		cmdUI->Enable(model.CanRedo() ? 1 : 0);
+	}
+
 	afx_msg void OnFigureDot()
 	{
 		SetCommand(new DotCommand());

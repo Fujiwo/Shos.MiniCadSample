@@ -85,7 +85,8 @@ class undo_redo_vector
 		std::vector<undo_step*> undo_steps;
 
 	public:
-		using iterator = typename std::vector<undo_step*>::pointer;
+		using iterator		 = typename std::vector<undo_step*>::iterator;
+		using const_iterator = typename std::vector<undo_step*>::const_iterator;
 
 		undo_step_group(std::vector<TElement>& collection) : undo_step(collection, operation_type::group)
 		{}
@@ -115,6 +116,16 @@ class undo_redo_vector
 			return undo_steps.end();
 		}
 
+		const_iterator cbegin() const
+		{
+			return undo_steps.cbegin();
+		}
+
+		const_iterator cend() const
+		{
+			return undo_steps.cend();
+		}
+
 		virtual void undo() override
 		{
 			for_each(undo_steps.rbegin(), undo_steps.rend(), [](undo_step* step) { step->undo(); });
@@ -133,8 +144,9 @@ class undo_redo_vector
 	undo_step_group*		current_undo_step_group;
 
 public:
-	using iterator = typename std::vector<TElement>::iterator;
-	
+	using iterator		 = typename std::vector<TElement>::iterator;
+	using const_iterator = typename std::vector<TElement>::const_iterator;
+
 	undo_redo_vector() : undo_steps_index(0), current_undo_step_group(nullptr)
 	{}
 
@@ -162,6 +174,16 @@ public:
 	iterator end()
 	{
 		return data.end();
+	}
+
+	const_iterator cbegin() const
+	{
+		return data.cbegin();
+	}
+
+	const_iterator cend() const
+	{
+		return data.cend();
 	}
 
 	void clear()
