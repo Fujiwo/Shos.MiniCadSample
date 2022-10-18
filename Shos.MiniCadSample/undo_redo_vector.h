@@ -8,7 +8,7 @@ class undo_redo_vector
 {
 	class undo_step
 	{
-	protected:
+	public:
 		enum class operation_type
 		{
 			add	  ,
@@ -24,6 +24,16 @@ class undo_redo_vector
 		TElement				element;
 		
 	public:
+		operation_type get_operation_type()
+		{
+			return operation;
+		}
+
+		TElement get_element() const
+		{
+			return element;
+		}
+
 		static undo_step* add(std::vector<TElement>& collection, TElement element)
 		{
 			collection.push_back(element);
@@ -68,6 +78,11 @@ class undo_redo_vector
 			undo();
 		}
 
+		virtual const std::vector<undo_step*>* get_data() const
+		{
+			return nullptr;
+		}
+
 	protected:
 		undo_step(std::vector<TElement>& collection, operation_type operation) : collection(collection), operation(operation), index(0), element()
 		{}
@@ -96,6 +111,11 @@ class undo_redo_vector
 			for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
 		}
 
+		virtual const std::vector<undo_step*>* get_data() const override
+		{
+			return &undo_steps;
+		}
+		
 		size_t size() const
 		{
 			return undo_steps.size();
@@ -239,6 +259,29 @@ public:
 	bool can_redo() const
 	{
 		return undo_steps_index != undo_steps.size();
+	}
+
+	std::vector<TElement> undo_data() const
+	{
+		std::vector<TElement> undoes;
+		undo_data(undo_steps, undoes);
+		return undoes;
+	}
+	
+	void undo_data(const std::vector<undo_step*> undo_steps, std::vector<TElement>& undoes) const
+	{
+		for (auto step : undo_steps) {
+			switch (step->get_operation_type()) {
+			case undo_step::operation_type::remove:
+			case undo_step::operation_type::update:
+				undoes.push_back(step->get_element());
+				break;
+			case undo_step::operation_type::group:
+				if (step->get_data() != nullptr)
+					undo_data(*step->get_data(), undoes);
+				break;
+			}
+		}
 	}
 
 	class transaction

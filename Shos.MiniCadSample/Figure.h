@@ -19,7 +19,7 @@ class Figure : public CObject
 	static const COLORREF areaColor		   = RGB(0x00, 0xa0, 0xff);
 	
 	FigureAttribute attribute;
-	bool            selected;
+	bool            isSelected;
 
 public:
 	const FigureAttribute& Attribute() const
@@ -32,22 +32,27 @@ public:
 		return attribute;
 	}
 
-	Figure() : selected(false)
+	Figure() : isSelected(false)
 	{}
 
-	Figure(const Figure& another) : attribute(another.attribute), selected(another.selected)
+	Figure(const Figure& another) : attribute(another.attribute), isSelected(another.isSelected)
 	{}
 
 	Figure& operator =(const Figure& another)
 	{
-		attribute = another.attribute;
-		selected  = another.selected ;
+		attribute  = another.attribute;
+		isSelected = another.isSelected;
 		return *this;
+	}
+
+	bool IsSelected() const
+	{
+		return isSelected;
 	}
 
 	void Select(bool selected)
 	{
-		this->selected = selected;
+		this->isSelected = selected;
 	}
 
 	virtual Figure* Clone()
@@ -62,7 +67,7 @@ public:
 		GdiObjectSelector   penSelector(dc, pen);
 
 		DrawShape(dc);
-		if (selected)
+		if (isSelected)
 			DrawSelecter(dc);
 	}
 

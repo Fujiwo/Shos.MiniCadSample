@@ -73,7 +73,7 @@ public:
 		selectedFigureAttribute = nullptr;
 		Application::Set(currentFigureAttribute);
 	}
-	
+
 	virtual void Update(FigureAttribute& hint) override
 	{
 		NotifyObservers(Hint(Hint::Type::ViewOnly));
@@ -85,6 +85,7 @@ public:
 	virtual ~Model()
 	{
 		Clear();
+		ClearUndoData();
 	}
 
 	iterator begin() const
@@ -105,13 +106,26 @@ public:
 		NotifyObservers(Hint(Hint::Type::Added, figure));
 	}
 
+	void Remove(Figure* figure)
+	{
+		ASSERT_VALID(figure);
+
+		auto iterator = std::find(figures.begin(), figures.end(), figure);
+		figures.erase(iterator);
+		if ((*iterator)->IsSelected())
+			ResetSelectedFigureAttribute();
+
+		NotifyObservers(Hint(Hint::Type::Removed, figure));
+	}
+
 	bool Change(Figure* oldFigure, Figure* newFigure)
 	{
 		auto iterator = std::find(figures.begin(), figures.end(), oldFigure);
 		if (iterator == figures.end())
 			return false;
 
-		*iterator = newFigure;
+		figures.update(iterator, newFigure);
+		//*iterator = newFigure;
 		std::vector<Figure*> changedFigures = { oldFigure, newFigure };
 		NotifyObservers(Hint(Hint::Type::Changed, changedFigures));
 		return true;
@@ -186,6 +200,13 @@ public:
 			delete figure;
 		figures.clear();
 		highlightedFigure = nullptr;
+		ResetSelectedFigureAttribute();
+	}
+
+	void ClearUndoData()
+	{
+		auto undo_data = figures.undo_data();
+		std::for_each(undo_data.begin(), undo_data.end(), [](Figure* figure) { delete figure; });
 	}
 
 	void AddDummyData(size_t count)
@@ -198,6 +219,7 @@ public:
 private:
 	void ClearSelected()
 	{
+		ResetSelectedFigureAttribute();
 		std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
 	}
 };
