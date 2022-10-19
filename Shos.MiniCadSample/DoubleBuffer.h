@@ -46,9 +46,9 @@ protected:
         }
     };
 
-    void SetBackgroundColor(COLORREF backgroundColor)
+    void SetBackgroundColor(COLORREF newBackgroundColor)
     {
-        this->backgroundColor = backgroundColor;
+        backgroundColor = newBackgroundColor;
     }
 
     void Update()
@@ -63,8 +63,8 @@ protected:
         OnDrawLayer2(dc);
     }
 
-    virtual void OnDrawLayer1(CDC& dc) {}
-    virtual void OnDrawLayer2(CDC& dc) {}
+    virtual void OnDrawLayer1(CDC& /* dc */) {}
+    virtual void OnDrawLayer2(CDC& /* dc */) {}
 
 private:
     void DrawCash(CDC& dc)
@@ -110,7 +110,7 @@ protected:
         Draw(dc);
     }
 
-    virtual void OnDraw(CDC* pDC) override
+    virtual void OnDraw(CDC* /* pDC */) override
     {
         ASSERT(false);
     }
@@ -127,7 +127,7 @@ protected:
         OnPaint(dc);
     }
 
-    afx_msg BOOL OnEraseBkgnd(CDC* pDC)
+    afx_msg BOOL OnEraseBkgnd(CDC* /* pDC */)
     {
         //return TView::OnEraseBkgnd(pDC);
         return true;

@@ -17,7 +17,7 @@ public:
             if (name.IsEmpty())
                 textline.Format(_T("%s"), GetMessage().GetString());
             else
-                textline.Format(_T("[%s] %s"), GetName(), GetMessage().GetString());
+                textline.Format(_T("[%s] %s"), GetName().GetString(), GetMessage().GetString());
             return textline;
         }
 
@@ -134,9 +134,9 @@ public:
     Command() : model(nullptr)
     {}
 
-    void Set(Model& model)
+    void Set(Model& newModel)
     {
-        this->model = &model;
+        model = &newModel;
     }
 
     void Draw(CDC& dc)
@@ -145,7 +145,7 @@ public:
         OnDraw(dc);
     }
 
-    virtual void OnClick(CPoint point)
+    virtual void OnClick(CPoint /* point */)
     {}
 
     void OnMouseMove(CPoint point)
@@ -155,10 +155,10 @@ public:
     }
 
 protected:
-    virtual void OnDraw(CDC& dc)
+    virtual void OnDraw(CDC& /* dc */)
     {}
 
-    virtual void OnCursorMove(CPoint point)
+    virtual void OnCursorMove(CPoint /* point */)
     {}
 
     DECLARE_DYNCREATE(Command)
@@ -297,7 +297,7 @@ protected:
         return cursorPosition;
     }
 
-    virtual Figure* GetFigure(CPoint cursorPosition) = 0;
+    virtual Figure* GetFigure(CPoint /* point */) = 0;
     virtual Figure* CreateFigure() = 0;
 
     virtual size_t GetMaxCount() const
@@ -305,7 +305,7 @@ protected:
         return 2;
     }
 
-    virtual bool Input(size_t count, CPoint point)
+    virtual bool Input(size_t /* count */, CPoint /* point */)
     {
         return true;
     }
@@ -316,9 +316,9 @@ class DotCommand : public AddFigureCommand
     DotFigure figure;
 
 protected:
-    virtual Figure* GetFigure(CPoint cursorPosition) override
+    virtual Figure* GetFigure(CPoint point) override
     {
-        figure = DotFigure(cursorPosition);
+        figure = DotFigure(point);
         return &figure;
     }
 
@@ -352,9 +352,9 @@ class LineCommand : public AddFigureCommand
     LineFigure figure;
 
 protected:
-    virtual Figure* GetFigure(CPoint cursorPosition) override
+    virtual Figure* GetFigure(CPoint point) override
     {
-        figure = LineFigure(GetPoint(0), cursorPosition);
+        figure = LineFigure(GetPoint(0), point);
         return &figure;
     }
 
@@ -413,9 +413,9 @@ class RectangleCommand : public RectangleBaseCommand
     RectangleFigure figure;
 
 protected:
-    virtual Figure* GetFigure(CPoint cursorPosition) override
+    virtual Figure* GetFigure(CPoint point) override
     {
-        figure = RectangleFigure(CRect(GetPoint(0), cursorPosition));
+        figure = RectangleFigure(CRect(GetPoint(0), point));
         return &figure;
     }
 
@@ -437,9 +437,9 @@ class EllipseCommand : public RectangleBaseCommand
     EllipseFigure figure;
 
 protected:
-    virtual Figure* GetFigure(CPoint cursorPosition) override
+    virtual Figure* GetFigure(CPoint point) override
     {
-        figure = EllipseFigure(CRect(GetPoint(0), cursorPosition));
+        figure = EllipseFigure(CRect(GetPoint(0), point));
         return &figure;
     }
 

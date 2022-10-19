@@ -38,10 +38,10 @@ public:
         return isColorValid;
     }
 
-    bool SetColor(COLORREF color)
+    bool SetColor(COLORREF newColor)
     {
-        if (color != this->color) {
-            this->color = color;
+        if (newColor != color) {
+            color = newColor;
             return true;
         }
         return false;
@@ -57,10 +57,10 @@ public:
         return isPenWidthValid;
     }
 
-    bool SetPenWidth(int penWidth)
+    bool SetPenWidth(int newPenWidth)
     {
-        if (penWidth != this->penWidth) {
-            this->penWidth = penWidth;
+        if (newPenWidth != penWidth) {
+            penWidth = newPenWidth;
             return true;
         }
         return false;

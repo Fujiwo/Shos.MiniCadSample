@@ -13,7 +13,7 @@ public:
         if (!view.OpenClipboard())
             return false;
         ::EmptyClipboard();
-        CopyMetaFileToClipboard(document, view, draw);
+        CopyMetaFileToClipboard(view, draw);
         CopyImageToClipboard(size, backgroundColor, draw);
         CopyDataToClipboard(document);
         ::CloseClipboard();
@@ -53,7 +53,7 @@ public:
     }
 
 private:
-    static void CopyMetaFileToClipboard(CDocument& document, CWnd& view, std::function<void(CDC&)> draw)
+    static void CopyMetaFileToClipboard(CWnd& view, std::function<void(CDC&)> draw)
     {
         CClientDC   clientDC(&view);
         CMetaFileDC metaDC;

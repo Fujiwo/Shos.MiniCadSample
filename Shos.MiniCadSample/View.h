@@ -122,12 +122,12 @@ protected:
         ClipboardHelper::OnEditPaste(GetDocument(), *this);
     }
     
-    afx_msg void OnLButtonUp(UINT nFlags, CPoint point)
+    afx_msg void OnLButtonUp(UINT /* nFlags */, CPoint point)
     {
         GetDocument().OnClick(DPtoLP(point));
     }
 
-    afx_msg void OnMouseMove(UINT nFlags, CPoint point)
+    afx_msg void OnMouseMove(UINT /* nFlags */, CPoint point)
     {
         GetDocument().OnMouseMove(DPtoLP(point));
         Invalidate();

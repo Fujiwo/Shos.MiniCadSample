@@ -51,7 +51,7 @@ void FigureAttributeDialog::LoadPenWidth(CDataExchange* pDX)
     }
 }
 
-int FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM lParam)
+int FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM /* lParam */)
 {
     switch (LOWORD(wParam)) {
     case IDC_COLOR_BUTTON    :

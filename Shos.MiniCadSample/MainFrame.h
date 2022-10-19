@@ -31,14 +31,14 @@ protected:
         cmdUI->SetCheck(figureAttributeDialog.IsWindowVisible() ? 1 : 0);
     }
 
-    afx_msg LRESULT OnSetFigureAttribute(WPARAM wParam, LPARAM lParam)
+    afx_msg LRESULT OnSetFigureAttribute(WPARAM wParam, LPARAM /* lParam */)
     {
         auto figureAttribute = reinterpret_cast<const FigureAttribute*>(wParam);
         figureAttributeDialog.Set(*figureAttribute);
         return 0L;
     }
 
-    afx_msg LRESULT OnSetFigureAttributeObserver(WPARAM wParam, LPARAM lParam)
+    afx_msg LRESULT OnSetFigureAttributeObserver(WPARAM wParam, LPARAM /* lParam */)
     {
         auto figureAttributeObserver = reinterpret_cast<Observer<FigureAttribute>*>(wParam);
         figureAttributeDialog.AddObserver(*figureAttributeObserver);

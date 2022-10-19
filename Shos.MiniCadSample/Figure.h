@@ -83,8 +83,11 @@ public:
         return area;
     }
 
-    virtual long GetDistanceFrom(CPoint point) const;
-        
+    virtual long GetDistanceFrom(CPoint /* point */) const
+    {
+        return Geometry::maximumDistance;
+    }
+    
     virtual void Serialize(CArchive& ar) override
     {
         CObject::Serialize(ar);
@@ -92,7 +95,7 @@ public:
     }
 
 protected:
-    virtual void DrawShape(CDC& dc) const
+    virtual void DrawShape(CDC& /* dc */) const
     {}
 
     virtual CRect GetShapeArea() const

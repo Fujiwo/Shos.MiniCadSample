@@ -12,9 +12,9 @@ public:
     FigureAttributeDialog()
     {}
 
-    void Set(const FigureAttribute& figureAttribute)
+    void Set(const FigureAttribute& newFigureAttribute)
     {
-        this->figureAttribute = figureAttribute;
+        figureAttribute = newFigureAttribute;
         UpdateData(false);
     }
 
