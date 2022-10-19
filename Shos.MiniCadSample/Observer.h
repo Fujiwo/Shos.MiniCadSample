@@ -6,7 +6,7 @@ template <typename THint>
 class Observer
 {
 public:
-	virtual void Update(THint& hint) = 0;
+	virtual void Update(const THint& hint) = 0;
 };
 
 template <typename THint>
@@ -24,8 +24,8 @@ public:
 	{
 		return std::remove(observers.begin(), observers.end(), &observer) != observers.end();
 	}
-
-	void NotifyObservers(THint& hint)
+	
+	void NotifyObservers(const THint& hint)
 	{
 		for (auto observer : observers)
 			observer->Update(hint);

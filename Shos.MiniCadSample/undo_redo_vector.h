@@ -224,13 +224,13 @@ public:
 		push(step);
 	}
 
-	void erase(iterator iterator)
+	void erase(const_iterator iterator)
 	{
 		auto step = undo_step::remove(data, iterator - data.begin());
 		push(step);
 	}
 
-	void update(iterator iterator, TElement element)
+	void update(const_iterator iterator, TElement element)
 	{
 		auto step = undo_step::update(data, iterator - data.begin(), element);
 		push(step);

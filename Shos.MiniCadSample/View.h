@@ -33,10 +33,11 @@ protected:
 		SetScrollSizes(MM_TEXT, GetDocument().GetSize());
 #endif // SCROLL_VIEW 
 
-		Document& document = GetDocument();
-		FigureAttribute& fa = document.GetCurrentFigureAttribute();
+		//Document& document = GetDocument();
+		//FigureAttribute& fa = document.GetCurrentFigureAttribute();
 		
 		Application::Set(GetDocument().GetCurrentFigureAttribute());
+		Application::SetFigureAttributeObserver(GetDocument().GetModel());
 
 #ifdef ZOOMING_VIEW
 		logicalArea = GetDocument().GetArea();
@@ -86,7 +87,7 @@ protected:
 	{
 		Update();
 
-		if (pHint == nullptr || static_cast<Hint*>(pHint)->type == Hint::Type::All || static_cast<Hint*>(pHint)->type == Hint::Type::ViewOnly) {
+		if (pHint == nullptr || static_cast<const Hint*>(pHint)->type == Hint::Type::All || static_cast<const Hint*>(pHint)->type == Hint::Type::ViewOnly) {
 			#ifdef SCROLL_VIEW
 			DoubleBufferScrollView
 			#else // SCROLL_VIEW
@@ -97,7 +98,7 @@ protected:
 		}
 
 		CRect area;
-		FigureHelper::GetArea(static_cast<Hint*>(pHint)->figures, area);
+		FigureHelper::GetArea(static_cast<const Hint*>(pHint)->figures, area);
 		
 		TRACE(_T("View::OnUpdate: area   (top: %d, left: %d, width: %d, height: %d)\n"), area.top, area.left, area.Width(), area.Height());
 		area = LPtoDP(area);

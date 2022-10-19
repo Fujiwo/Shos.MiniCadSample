@@ -13,6 +13,8 @@ class Document : public CDocument, public Observer<Hint>
 public:
 	using iterator = Model::iterator;
 
+	Model& GetModel() { return model; }
+
 	const CSize GetSize() const { return model.GetSize(); }
 	const CRect GetArea() const { return model.GetArea(); }
 
@@ -72,11 +74,11 @@ public:
 	}
 
 protected:
-	virtual void Update(Hint& hint) override
+	virtual void Update(const Hint& hint) override
 	{
 		if (hint.type != Hint::Type::ViewOnly)
 			SetModifiedFlag();
-		UpdateAllViews(nullptr, 0, &hint);
+		UpdateAllViews(nullptr, 0, const_cast<Hint*>(&hint));
 	}
 
 	virtual void Serialize(CArchive& ar)

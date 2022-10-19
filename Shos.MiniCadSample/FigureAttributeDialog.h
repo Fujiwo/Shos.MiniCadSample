@@ -3,18 +3,19 @@
 #include "afxdialogex.h"
 #include "FigureAttribute.h"
 
-class FigureAttributeDialog : public CDialogEx
+class FigureAttributeDialog : public CDialogEx, public Observable<FigureAttribute>
 {
-	FigureAttribute* figureAttribute;
-	CMFCColorButton  colorButton;
+	FigureAttribute figureAttribute;
+	CMFCColorButton colorButton;
 	
 public:
-	FigureAttributeDialog() : figureAttribute(nullptr)
+	FigureAttributeDialog()
 	{}
 
-	void Set(FigureAttribute& figureAttribute)
+	void Set(const FigureAttribute& figureAttribute)
 	{
-		this->figureAttribute = &figureAttribute;
+		//this->figureAttribute = &figureAttribute;
+		this->figureAttribute = figureAttribute;
 		UpdateData(false);
 	}
 

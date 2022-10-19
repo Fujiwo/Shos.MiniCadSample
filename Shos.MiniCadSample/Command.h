@@ -186,13 +186,10 @@ protected:
 		TRACE(_T("OnClick(x: %d, y: %d)\n"), point.x, point.y);
 
 		auto nearestFigure = GetNearestFigure(point);
-		if (nearestFigure == nullptr) {
+		if (nearestFigure == nullptr)
 			GetModel().UnSelectAll();
-			GetModel().ResetSelectedFigureAttribute();
-		} else {
+		else
 			GetModel().Select(*nearestFigure);
-			GetModel().SetSelectedFigureAttribute(nearestFigure->Attribute());
-		}
 	}
 
 	virtual void OnCursorMove(CPoint point) override

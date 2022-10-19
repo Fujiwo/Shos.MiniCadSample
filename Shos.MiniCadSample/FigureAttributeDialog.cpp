@@ -22,18 +22,19 @@ void FigureAttributeDialog::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 
 	DDX_Control(pDX, IDC_COLOR_BUTTON, colorButton);
-
-	if (figureAttribute == nullptr)
-		return;
 	
-	auto penWidth = figureAttribute->GetPenWidth();
+	auto penWidth = figureAttribute.GetPenWidth();
 	DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
-	figureAttribute->SetPenWidth(penWidth);
+	if (figureAttribute.SetPenWidth(penWidth))
+		NotifyObservers(figureAttribute);
 
-	if (pDX->m_bSaveAndValidate)
-		figureAttribute->SetColor(colorButton.GetColor());
-	else
-		colorButton.SetColor(figureAttribute->GetColor());
+	if (pDX->m_bSaveAndValidate) {
+		if (figureAttribute.SetColor(colorButton.GetColor()))
+			NotifyObservers(figureAttribute);
+	}
+	else {
+		colorButton.SetColor(figureAttribute.GetColor());
+	}
 }
 
 int FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM lParam)

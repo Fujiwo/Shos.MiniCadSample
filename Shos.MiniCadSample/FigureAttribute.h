@@ -3,7 +3,7 @@
 #include <afx.h>
 #include "Observer.h"
 
-class FigureAttribute : public Observable<FigureAttribute>
+class FigureAttribute //: public Observable<FigureAttribute>
 {
 	COLORREF color;
 	int      penWidth;
@@ -14,12 +14,14 @@ public:
 		return color;
 	}
 
-	void SetColor(COLORREF color)
+	bool SetColor(COLORREF color)
 	{
 		if (color != this->color) {
 			this->color = color;
-			NotifyObservers(*this);
+			//NotifyObservers(*this);
+			return true;
 		}
+		return false;
 	}
 
 	int GetPenWidth() const
@@ -27,12 +29,14 @@ public:
 		return penWidth;
 	}
 
-	void SetPenWidth(int penWidth)
+	bool SetPenWidth(int penWidth)
 	{
 		if (penWidth != this->penWidth) {
 			this->penWidth = penWidth;
-			NotifyObservers(*this);
+			//NotifyObservers(*this);
+			return true;
 		}
+		return false;
 	}
 
 	FigureAttribute() : color(RGB(0x00, 0x00, 0x00)), penWidth(0)

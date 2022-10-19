@@ -36,55 +36,57 @@ class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
 	static const LONG size = 2000L;
 
-	//std::vector<Figure*>   figures;
 	undo_redo_vector<Figure*>   figures;
 	const Figure* highlightedFigure;
 
 	FigureAttribute currentFigureAttribute;
-	FigureAttribute* selectedFigureAttribute;
 
 public:
-	//using iterator = std::vector<Figure*>::const_iterator;
 	using iterator = undo_redo_vector<Figure*>::const_iterator;
 
 	const CSize GetSize() const { return CSize(size, size); }
 	const CRect GetArea() const { return CRect(CPoint(), GetSize()); }
+
+	Model() : highlightedFigure(nullptr)
+	{}
+
+	virtual ~Model()
+	{
+		Reset();
+	}
 
 	FigureAttribute& GetCurrentFigureAttribute()
 	{
 		return currentFigureAttribute;
 	}
 
-	void SetSelectedFigureAttribute(FigureAttribute& figureAttribute)
+	virtual void Update(const FigureAttribute& hint) override
 	{
-		if (selectedFigureAttribute != nullptr)
-			selectedFigureAttribute->RemoveObserver(*this);
-
-		selectedFigureAttribute = &figureAttribute;
-		figureAttribute.AddObserver(*this);
-		Application::Set(figureAttribute);
+		auto selectedFigures = GetSelectedFigures();
+		if (selectedFigures.size() == 0) {
+			currentFigureAttribute = hint;
+			NotifyObservers(Hint(Hint::Type::ViewOnly));
+		} else {
+			Update(selectedFigures, hint);
+		}
 	}
 
-	void ResetSelectedFigureAttribute()
+	void Update(std::vector<Figure*> selectedFigures, const FigureAttribute& figureAttribute)
 	{
-		if (selectedFigureAttribute != nullptr)
-			selectedFigureAttribute->RemoveObserver(*this);
-
-		selectedFigureAttribute = nullptr;
-		Application::Set(currentFigureAttribute);
+		undo_redo_vector<Figure*>::transaction transaction(figures);
+		for (auto figure : selectedFigures) {
+			auto updatedFigure = figure->Clone();
+			updatedFigure->Attribute() = figureAttribute;
+			Update(*figure, *updatedFigure);
+		}
+		NotifyObservers(Hint(Hint::Type::Changed, selectedFigures));
 	}
 
-	virtual void Update(FigureAttribute& hint) override
+	void Update(Figure& oldFigure, Figure& newFigure)
 	{
-		NotifyObservers(Hint(Hint::Type::ViewOnly));
-	}
-
-	Model() : highlightedFigure(nullptr), selectedFigureAttribute(nullptr)
-	{}
-
-	virtual ~Model()
-	{
-		Reset();
+		auto iterator = std::find(figures.cbegin(), figures.cend(), &oldFigure);
+		if (iterator != figures.cend())
+			figures.update(iterator, &newFigure);
 	}
 
 	iterator begin() const
@@ -100,7 +102,7 @@ public:
 	void Add(Figure* figure)
 	{
 		ASSERT_VALID(figure);
-		figure->Attribute() = GetCurrentFigureAttribute();
+		figure->Attribute() = currentFigureAttribute;
 		figures.push_back(figure);
 		NotifyObservers(Hint(Hint::Type::Added, figure));
 	}
@@ -112,7 +114,7 @@ public:
 		auto iterator = std::find(figures.begin(), figures.end(), figure);
 		figures.erase(iterator);
 		if ((*iterator)->IsSelected())
-			ResetSelectedFigureAttribute();
+			SeSelectedFigureAttribute();
 
 		NotifyObservers(Hint(Hint::Type::Removed, figure));
 	}
@@ -124,7 +126,6 @@ public:
 			return false;
 
 		figures.update(iterator, newFigure);
-		//*iterator = newFigure;
 		std::vector<Figure*> changedFigures = { oldFigure, newFigure };
 		NotifyObservers(Hint(Hint::Type::Changed, changedFigures));
 		return true;
@@ -134,7 +135,12 @@ public:
 	{
 		ClearSelected();
 		figure.Select(true);
-		NotifyObservers(Hint(Hint::Type::ViewOnly));
+		SeSelectedFigureAttribute();
+	}
+
+	void UnSelectAll()
+	{
+		ClearSelected();
 	}
 
 	void Undo()
@@ -169,12 +175,6 @@ public:
 		return highlightedFigure;
 	}
 
-	void UnSelectAll()
-	{
-		ClearSelected();
-		NotifyObservers(Hint(Hint::Type::ViewOnly));
-	}
-
 	virtual void Serialize(CArchive& ar)
 	{
 		if (ar.IsStoring()) {
@@ -199,8 +199,8 @@ public:
 			delete figure;
 		ResetUndoData();
 		figures.reset();
+		ClearSelected();
 		highlightedFigure = nullptr;
-		ResetSelectedFigureAttribute();
 	}
 
 	void ResetUndoData()
@@ -219,7 +219,36 @@ public:
 private:
 	void ClearSelected()
 	{
-		ResetSelectedFigureAttribute();
 		std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
+		SeSelectedFigureAttribute();
+	}
+
+	const FigureAttribute& GetSelectedFigureAttribute() const
+	{
+		auto selectedFigures = GetSelectedFigures();
+
+		if (selectedFigures.size() == 1)
+			return selectedFigures[0]->Attribute();
+		if (selectedFigures.size() > 1)
+			return selectedFigures[0]->Attribute();
+		return currentFigureAttribute;
+	}
+	
+	void SeSelectedFigureAttribute()
+	{
+		Application::Set(GetSelectedFigureAttribute());
+		NotifyObservers(Hint(Hint::Type::ViewOnly));
+	}
+
+	std::vector<Figure*> GetSelectedFigures() const
+	{
+		std::vector<Figure*> selectedFigures;
+		std::for_each(figures.cbegin(), figures.cend(),
+			[&](Figure* figure) {
+				if (figure->IsSelected())
+					selectedFigures.push_back(figure);
+			});
+
+		return selectedFigures;
 	}
 };
