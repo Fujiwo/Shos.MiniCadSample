@@ -12,7 +12,8 @@ public:
 	static void Set(FigureAttribute& figureAttribute)
 	{
 		auto mainFrame = static_cast<MainFrame*>(::AfxGetMainWnd());
-		mainFrame->SendMessage(MainFrame::WM_SET_FIGURE_ATTRIBUTE, reinterpret_cast<WPARAM>(&figureAttribute));
+		if (::IsWindow(mainFrame->GetSafeHwnd()))
+			mainFrame->SendMessage(MainFrame::WM_SET_FIGURE_ATTRIBUTE, reinterpret_cast<WPARAM>(&figureAttribute));
 	}
 	
 	virtual BOOL InitInstance();

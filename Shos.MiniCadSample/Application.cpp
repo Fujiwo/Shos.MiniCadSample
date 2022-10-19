@@ -2,15 +2,16 @@
 #include "framework.h"
 #include "afxwinappex.h"
 #include "afxdialogex.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
 #include "Application.h"
 #include "MainFrame.h"
 #include "Document.h"
 #include "View.h"
 #include "resource.h"
-
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
 
 BEGIN_MESSAGE_MAP(Application, CWinApp)
 	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)

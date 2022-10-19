@@ -1,4 +1,9 @@
 ﻿#include "pch.h"
+
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#endif
+
 #include "framework.h"
 #include "MainFrame.h"
 #include "resource.h"
