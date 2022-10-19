@@ -272,22 +272,6 @@ public:
 		undo_data(undo_steps, undoes);
 		return undoes;
 	}
-	
-	void undo_data(const std::vector<undo_step*> undo_steps, std::vector<TElement>& undoes) const
-	{
-		for (auto step : undo_steps) {
-			switch (step->get_operation_type()) {
-			case undo_step::operation_type::remove:
-			case undo_step::operation_type::update:
-				undoes.push_back(step->get_element());
-				break;
-			case undo_step::operation_type::group:
-				if (step->get_data() != nullptr)
-					undo_data(*step->get_data(), undoes);
-				break;
-			}
-		}
-	}
 
 	class transaction
 	{
@@ -351,6 +335,22 @@ private:
 			throw std::exception();
 
 		current_undo_step_group->push_back(step);
+	}
+
+	void undo_data(const std::vector<undo_step*> undo_steps, std::vector<TElement>& undoes) const
+	{
+		for (auto step : undo_steps) {
+			switch (step->get_operation_type()) {
+			case undo_step::operation_type::remove:
+			case undo_step::operation_type::update:
+				undoes.push_back(step->get_element());
+				break;
+			case undo_step::operation_type::group:
+				if (step->get_data() != nullptr)
+					undo_data(*step->get_data(), undoes);
+				break;
+			}
+		}
 	}
 
 	void reset_undo_steps()
