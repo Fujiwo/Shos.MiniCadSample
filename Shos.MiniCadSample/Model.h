@@ -84,8 +84,7 @@ public:
 
 	virtual ~Model()
 	{
-		Clear();
-		ClearUndoData();
+		Reset();
 	}
 
 	iterator begin() const
@@ -194,16 +193,17 @@ public:
 		}
 	}
 
-	void Clear()
+	void Reset()
 	{
 		for (auto figure : *this)
 			delete figure;
-		figures.clear();
+		ResetUndoData();
+		figures.reset();
 		highlightedFigure = nullptr;
 		ResetSelectedFigureAttribute();
 	}
 
-	void ClearUndoData()
+	void ResetUndoData()
 	{
 		auto undo_data = figures.undo_data();
 		std::for_each(undo_data.begin(), undo_data.end(), [](Figure* figure) { delete figure; });

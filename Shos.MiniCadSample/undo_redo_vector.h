@@ -172,8 +172,7 @@ public:
 
 	virtual ~undo_redo_vector()
 	{
-		for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
-		delete current_undo_step_group;
+		reset_undo_steps();
 	}
 
 	const TElement& operator[](size_t index) const
@@ -211,6 +210,12 @@ public:
 		transaction transaction(*this);
 		while (data.size() > 0)
 			erase(begin());
+	}
+
+	void reset()
+	{
+		data.clear();
+		reset_undo_steps();
 	}
 
 	void push_back(TElement element)
@@ -346,5 +351,15 @@ private:
 			throw std::exception();
 
 		current_undo_step_group->push_back(step);
+	}
+
+	void reset_undo_steps()
+	{
+		for_each(undo_steps.begin(), undo_steps.end(), [](undo_step* step) { delete step; });
+		undo_steps.clear();
+
+		delete current_undo_step_group;
+		current_undo_step_group = nullptr;
+		undo_steps_index		= 0;
 	}
 };

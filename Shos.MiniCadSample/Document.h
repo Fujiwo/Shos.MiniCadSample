@@ -86,7 +86,7 @@ protected:
 
 	virtual void DeleteContents()
 	{
-		model.Clear();
+		model.Reset();
 		CDocument::DeleteContents();
 	}
 
