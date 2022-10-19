@@ -1,4 +1,5 @@
 #pragma once
+
 #include <afx.h>
 #include "Geometry.h"
 #include "Model.h"

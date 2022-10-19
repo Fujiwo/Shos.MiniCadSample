@@ -39,7 +39,12 @@ private:
 		SavePenWidth(pDX);
 	}
 
-	void SaveColor();
+	void SaveColor()
+	{
+		if (figureAttribute.SetColor(colorButton.GetColor()))
+			NotifyObservers(figureAttribute);
+	}
+
 	void SavePenWidth(CDataExchange* pDX);
 
 	void Load(CDataExchange* pDX)
@@ -48,7 +53,14 @@ private:
 		LoadPenWidth(pDX);
 	}
 
-	void LoadColor();
+	void LoadColor()
+	{
+		if (figureAttribute.IsColorValid())
+			colorButton.SetColor(figureAttribute.GetColor());
+		else
+			colorButton.SetColor(colorButton.GetAutomaticColor());
+	}
+
 	void LoadPenWidth(CDataExchange* pDX);
 
 #ifdef AFX_DESIGN_TIME

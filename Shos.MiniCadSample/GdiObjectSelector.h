@@ -1,7 +1,6 @@
 #pragma once
 
 #include <afx.h>
-#include <random>
 
 class GdiObjectSelectorBase
 {

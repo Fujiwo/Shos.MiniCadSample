@@ -8,10 +8,6 @@
 #include "Document.h"
 #include "View.h"
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-
 #ifdef SCROLL_VIEW
 IMPLEMENT_DYNCREATE(View, DoubleBufferScrollView)
 #else // SCROLL_VIEW

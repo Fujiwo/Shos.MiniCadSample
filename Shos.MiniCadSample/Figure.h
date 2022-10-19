@@ -1,7 +1,6 @@
 #pragma once
 
 #include <afx.h>
-#include <limits>
 #include <random>
 #include "FigureAttribute.h"
 #include "GdiObjectSelector.h"

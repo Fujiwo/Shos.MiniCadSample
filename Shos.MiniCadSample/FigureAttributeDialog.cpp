@@ -1,10 +1,10 @@
 ﻿#include "pch.h"
+#include "afxdialogex.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-#include "afxdialogex.h"
 #include "FigureAttributeDialog.h"
 #include "resource.h"
 
@@ -28,12 +28,6 @@ void FigureAttributeDialog::DoDataExchange(CDataExchange* pDX)
 		Load(pDX);
 }
 
-void FigureAttributeDialog::SaveColor()
-{
-	if (figureAttribute.SetColor(colorButton.GetColor()))
-		NotifyObservers(figureAttribute);
-}
-
 void FigureAttributeDialog::SavePenWidth(CDataExchange* pDX)
 {
 	CString penWidthText;
@@ -45,14 +39,6 @@ void FigureAttributeDialog::SavePenWidth(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
 	if (figureAttribute.SetPenWidth(penWidth))
 		NotifyObservers(figureAttribute);
-}
-
-void FigureAttributeDialog::LoadColor()
-{
-	if (figureAttribute.IsColorValid())
-		colorButton.SetColor(figureAttribute.GetColor());
-	else
-		colorButton.SetColor(colorButton.GetAutomaticColor());
 }
 
 void FigureAttributeDialog::LoadPenWidth(CDataExchange* pDX)

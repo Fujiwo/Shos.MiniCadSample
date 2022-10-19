@@ -6,10 +6,6 @@
 
 #include "DoubleBuffer.h"
 
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-
 IMPLEMENT_DYNCREATE(DoubleBufferView, DoubleBufferViewBase<CView>)
 
 BEGIN_MESSAGE_MAP(DoubleBufferView, DoubleBufferViewBase<CView>)
