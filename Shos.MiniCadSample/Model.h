@@ -133,8 +133,7 @@ public:
 
 	void Select(Figure& figure)
 	{
-		UnSelectAll();
-		figure.Select(true);
+		figure.Select(!figure.IsSelected());
 		SeSelectedFigureAttribute();
 	}
 
@@ -218,21 +217,23 @@ public:
 	}
 
 private:
-	//void ClearSelected()
-	//{
-	//	std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
-	//	SeSelectedFigureAttribute();
-	//}
-
-	const FigureAttribute& GetSelectedFigureAttribute() const
+	FigureAttribute GetSelectedFigureAttribute() const
 	{
 		auto selectedFigures = GetSelectedFigures();
 
 		if (selectedFigures.size() == 1)
 			return selectedFigures[0]->Attribute();
 		if (selectedFigures.size() > 1)
-			return selectedFigures[0]->Attribute();
+			return FigureAttribute::GetSum(GetSelectedFigureAttributes(selectedFigures));
 		return currentFigureAttribute;
+	}
+
+	std::vector<FigureAttribute> GetSelectedFigureAttributes(const std::vector<Figure*> selectedFigures) const
+	{
+		std::vector<FigureAttribute> selectedFigureAttributes;
+		for (auto figure : selectedFigures)
+			selectedFigureAttributes.push_back(figure->Attribute());
+		return selectedFigureAttributes;
 	}
 	
 	void SeSelectedFigureAttribute()

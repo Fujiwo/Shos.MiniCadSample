@@ -22,19 +22,39 @@ void FigureAttributeDialog::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 
 	DDX_Control(pDX, IDC_COLOR_BUTTON, colorButton);
-	
-	auto penWidth = figureAttribute.GetPenWidth();
-	DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
-	if (figureAttribute.SetPenWidth(penWidth))
-		NotifyObservers(figureAttribute);
 
 	if (pDX->m_bSaveAndValidate) {
 		if (figureAttribute.SetColor(colorButton.GetColor()))
 			NotifyObservers(figureAttribute);
+
+		CString penWidthText;
+		GetDlgItemText(IDC_PEN_WIDTH_EDIT, penWidthText);
+		if (!penWidthText.IsEmpty()) {
+			int penWidth;
+			DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
+			if (figureAttribute.SetPenWidth(penWidth))
+				NotifyObservers(figureAttribute);
+		}
+	} else {
+		if (figureAttribute.IsColorValid()) {
+			colorButton.SetColor(figureAttribute.GetColor());
+		} else {
+			colorButton.SetColor(colorButton.GetAutomaticColor());
+		}
+
+		if (figureAttribute.IsPenWidthValid()) {
+			auto penWidth = figureAttribute.GetPenWidth();
+			DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
+		} else {
+			GetDlgItem(IDC_PEN_WIDTH_EDIT)->SetWindowText(_T(""));
+		}
 	}
-	else {
-		colorButton.SetColor(figureAttribute.GetColor());
-	}
+
+	//if (figureAttribute.IsPenWidthValid())
+	//auto penWidth = figureAttribute.GetPenWidth();
+	//DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
+	//if (figureAttribute.SetPenWidth(penWidth))
+	//	NotifyObservers(figureAttribute);
 }
 
 int FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM lParam)
