@@ -14,28 +14,28 @@
 #include "resource.h"
 
 BEGIN_MESSAGE_MAP(Application, CWinApp)
-	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
-	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
+    ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
+    ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
 END_MESSAGE_MAP()
 
 BOOL Application::InitInstance()
 {
-	CWinApp::InitInstance();
+    CWinApp::InitInstance();
 
-	auto pDocTemplate = new CSingleDocTemplate(IDR_MAINFRAME, RUNTIME_CLASS(Document), RUNTIME_CLASS(MainFrame), RUNTIME_CLASS(View));
-	if (!pDocTemplate)
-		return FALSE;
-	AddDocTemplate(pDocTemplate);
+    auto pDocTemplate = new CSingleDocTemplate(IDR_MAINFRAME, RUNTIME_CLASS(Document), RUNTIME_CLASS(MainFrame), RUNTIME_CLASS(View));
+    if (!pDocTemplate)
+        return FALSE;
+    AddDocTemplate(pDocTemplate);
 
-	CCommandLineInfo cmdInfo;
-	ParseCommandLine(cmdInfo);
+    CCommandLineInfo cmdInfo;
+    ParseCommandLine(cmdInfo);
 
-	if (!ProcessShellCommand(cmdInfo))
-		return FALSE;
+    if (!ProcessShellCommand(cmdInfo))
+        return FALSE;
 
-	m_pMainWnd->ShowWindow(SW_SHOW);
-	m_pMainWnd->UpdateWindow();
-	return TRUE;
+    m_pMainWnd->ShowWindow(SW_SHOW);
+    m_pMainWnd->UpdateWindow();
+    return TRUE;
 }
 
 Application theApp;

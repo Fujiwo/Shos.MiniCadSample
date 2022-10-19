@@ -13,18 +13,18 @@ public:
     {
         return x * x;
     }
-	
+    
     static long Round(double x)
     {
         return static_cast<long>(floor(x + 0.5));
     }
-	
+    
     // absolute value
     static long Abs(CPoint point)
     {
         return Round(sqrt(Square(static_cast<double>(point.x)) + Square(static_cast<double>(point.y))));
     }
-	
+    
     static long Abs(CSize size)
     {
         return Round(sqrt(Square(static_cast<double>(size.cx)) + Square(static_cast<double>(size.cy))));
@@ -34,7 +34,7 @@ public:
     {
         return Abs(point2 - point1);
     }
-	
+    
     static long GetDistanceToLineSegment(CPoint point, CPoint start, CPoint end)
     {
         auto d  = end   - start;
@@ -67,15 +67,15 @@ public:
 
     static long GetDistanceToEllipse(CPoint point, const CRect& rect)
     {
-		if (rect.Width() == 0 || rect.Height() == 0)
-			return GetDistanceToLineSegment(point, rect.TopLeft(), rect.BottomRight());
+        if (rect.Width() == 0 || rect.Height() == 0)
+            return GetDistanceToLineSegment(point, rect.TopLeft(), rect.BottomRight());
 
         auto rate = rect.Height() / (double)rect.Width();
 
-		auto d = point - rect.CenterPoint();
-		d.cx = Round(d.cx * rate);
+        auto d = point - rect.CenterPoint();
+        d.cx = Round(d.cx * rate);
 
-		auto distance = abs(Abs(d) - rect.Height() / 2);
+        auto distance = abs(Abs(d) - rect.Height() / 2);
         distance = Round(distance / rate);
 
         return distance;
@@ -94,22 +94,22 @@ public:
 
     static std::vector<CPoint> ToPoints(const CRect& rect)
     {
-		return { rect.TopLeft(), CPoint(rect.right, rect.top), rect.BottomRight(), CPoint(rect.left, rect.bottom) };
+        return { rect.TopLeft(), CPoint(rect.right, rect.top), rect.BottomRight(), CPoint(rect.left, rect.bottom) };
     }
-	
-	static bool GetArea(const std::vector<CRect>& areas, CRect& area)
-	{
-		if (areas.size() == 0)
-			return false;
+    
+    static bool GetArea(const std::vector<CRect>& areas, CRect& area)
+    {
+        if (areas.size() == 0)
+            return false;
 
-		area = areas[0];
-		for (auto index = 1; index < areas.size(); index++) {
-			auto eachArea = areas[index];
-			eachArea.NormalizeRect();
-			area.UnionRect(area, eachArea);
-		}
-		return true;
-	}
+        area = areas[0];
+        for (auto index = 1; index < areas.size(); index++) {
+            auto eachArea = areas[index];
+            eachArea.NormalizeRect();
+            area.UnionRect(area, eachArea);
+        }
+        return true;
+    }
 
     static int DPtoLP(CDC& dc, int size)
     {
@@ -132,7 +132,7 @@ public:
         Enlarge(rect.right , basePoint.x, rate);
         Enlarge(rect.bottom, basePoint.y, rate);
     }
-	
+    
 private:
     static void Enlarge(long& value, long base, double rate)
     {

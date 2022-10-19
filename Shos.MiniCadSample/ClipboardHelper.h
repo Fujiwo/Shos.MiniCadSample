@@ -6,7 +6,7 @@
 class ClipboardHelper
 {
     static HGLOBAL globalMemoryHandle;
-	
+    
 public:
     static bool OnEditCopy(CDocument& document, CWnd& view, CSize size, COLORREF backgroundColor, std::function<void(CDC&)> draw)
     {
@@ -23,7 +23,7 @@ public:
     static bool OnEditCut(CDocument& document, CWnd& view, CSize size, COLORREF backgroundColor, std::function<void(CDC&)> draw)
     {
         if (OnEditCopy(document, view, size, backgroundColor, draw)) {
-			document.DeleteContents();
+            document.DeleteContents();
             view.Invalidate();
             return true;
         }
@@ -33,7 +33,7 @@ public:
     static bool OnEditPaste(CDocument& document, CWnd& view)
     {
         if (!view.OpenClipboard())
-			return false;
+            return false;
         if (AddDataFromClipboard(document)) {
             document.SetModifiedFlag();
             view.Invalidate();
@@ -41,7 +41,7 @@ public:
         ::CloseClipboard();
         return true;
     }
-	
+    
     static void OnDestroyClipboard()
     {
         // on WM_DESTROYCLIPBOARD
@@ -64,7 +64,7 @@ private:
         ::SetClipboardData(CF_ENHMETAFILE, CopyEnhMetaFile(enhancedMetaFileHandle, NULL));
         ::DeleteEnhMetaFile(enhancedMetaFileHandle);
     }
-	
+    
     static void CopyDataToClipboard(CDocument& document)
     {
         CSharedFile sharedFile;

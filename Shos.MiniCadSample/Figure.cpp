@@ -19,7 +19,7 @@ IMPLEMENT_SERIAL(EllipseFigure, RectangleFigureBase, 1)
 
 long Figure::GetDistanceFrom(CPoint point) const
 {
-	return std::numeric_limits<long>::max();
+    return std::numeric_limits<long>::max();
 }
 
 std::random_device FigureHelper::random;

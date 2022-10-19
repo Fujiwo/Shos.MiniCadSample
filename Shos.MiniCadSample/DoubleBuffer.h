@@ -118,7 +118,7 @@ protected:
     virtual void OnUpdate(CView* pSender, LPARAM lHint, CObject* pHint) override
     {
         Update();
-		TView::OnUpdate(pSender, lHint, pHint);
+        TView::OnUpdate(pSender, lHint, pHint);
     }
 
     afx_msg void OnPaint()
