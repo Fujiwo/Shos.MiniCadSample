@@ -133,14 +133,15 @@ public:
 
 	void Select(Figure& figure)
 	{
-		ClearSelected();
+		UnSelectAll();
 		figure.Select(true);
 		SeSelectedFigureAttribute();
 	}
 
 	void UnSelectAll()
 	{
-		ClearSelected();
+		std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
+		SeSelectedFigureAttribute();
 	}
 
 	void Undo()
@@ -199,7 +200,7 @@ public:
 			delete figure;
 		ResetUndoData();
 		figures.reset();
-		ClearSelected();
+		UnSelectAll();
 		highlightedFigure = nullptr;
 	}
 
@@ -217,11 +218,11 @@ public:
 	}
 
 private:
-	void ClearSelected()
-	{
-		std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
-		SeSelectedFigureAttribute();
-	}
+	//void ClearSelected()
+	//{
+	//	std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
+	//	SeSelectedFigureAttribute();
+	//}
 
 	const FigureAttribute& GetSelectedFigureAttribute() const
 	{
