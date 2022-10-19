@@ -145,10 +145,10 @@ public:
         OnDraw(dc);
     }
 
-    virtual void OnClick(CPoint /* point */)
+    virtual void OnInput(CPoint /* point */)
     {}
 
-    void OnMouseMove(CPoint point)
+    void OnCursor(CPoint point)
     {
         cursor.SetCursorPosition(point);
         OnCursorMove(point);
@@ -182,9 +182,9 @@ protected:
             GetModel().Hilight()->DrawArea(dc);
     }
 
-    virtual void OnClick(CPoint point) override
+    virtual void OnInput(CPoint point) override
     {
-        TRACE(_T("OnClick(x: %d, y: %d)\n"), point.x, point.y);
+        TRACE(_T("OnInput(x: %d, y: %d)\n"), point.x, point.y);
 
         auto nearestFigure = GetNearestFigure(point);
         if (nearestFigure == nullptr)
@@ -261,7 +261,7 @@ protected:
         }
     }
 
-    virtual void OnClick(CPoint point) override
+    virtual void OnInput(CPoint point) override
     {
         if (Input(GetCount(), point))
             points.push_back(point);
@@ -490,16 +490,16 @@ public:
             GetCurrentCommand()->Draw(dc);
     }
 
-    void OnClick(CPoint point)
+    void OnInput(CPoint point)
     {
         if (GetCurrentCommand() != nullptr)
-            GetCurrentCommand()->OnClick(point);
+            GetCurrentCommand()->OnInput(point);
     }
 
-    void OnMouseMove(CPoint point)
+    void OnCursor(CPoint point)
     {
         if (GetCurrentCommand() != nullptr)
-            GetCurrentCommand()->OnMouseMove(point);
+            GetCurrentCommand()->OnCursor(point);
     }
 
 private:

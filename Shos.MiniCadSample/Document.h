@@ -15,8 +15,9 @@ public:
 
     Model& GetModel() { return model; }
 
-    const CSize GetSize() const { return model.GetSize(); }
-    const CRect GetArea() const { return model.GetArea(); }
+    static const CSize GetMinimumSize() { return Model::GetMinimumSize(); }
+    static const CSize GetSize()        { return Model::GetSize()       ; }
+    static const CRect GetArea()        { return Model::GetArea()       ; }
 
     FigureAttribute& GetCurrentFigureAttribute()
     {
@@ -61,16 +62,16 @@ public:
         commandManager.Draw(dc);
     }
 
-    void OnClick(CPoint point)
+    void OnInput(CPoint point)
     {
         if (IsValid(point))
-            commandManager.OnClick(point);
+            commandManager.OnInput(point);
     }
 
-    void OnMouseMove(CPoint point)
+    void OnCursor(CPoint point)
     {
         if (IsValid(point))
-            commandManager.OnMouseMove(point);
+            commandManager.OnCursor(point);
     }
 
 protected:

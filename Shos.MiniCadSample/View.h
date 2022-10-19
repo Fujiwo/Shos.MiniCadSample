@@ -124,12 +124,12 @@ protected:
     
     afx_msg void OnLButtonUp(UINT /* nFlags */, CPoint point)
     {
-        GetDocument().OnClick(DPtoLP(point));
+        GetDocument().OnInput(DPtoLP(point));
     }
 
     afx_msg void OnMouseMove(UINT /* nFlags */, CPoint point)
     {
-        GetDocument().OnMouseMove(DPtoLP(point));
+        GetDocument().OnCursor(DPtoLP(point));
         Invalidate();
     }
 
@@ -159,6 +159,10 @@ protected:
     {
         logicalArea = area;
         logicalArea.IntersectRect(logicalArea, GetDocument().GetArea());
+
+        const CRect minimumLogicalArea(CPoint(), Document::GetMinimumSize());
+        logicalArea.UnionRect(logicalArea, minimumLogicalArea);
+
         Update();
         Invalidate();
     }

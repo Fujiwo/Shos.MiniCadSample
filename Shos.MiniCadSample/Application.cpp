@@ -14,8 +14,8 @@
 #include "resource.h"
 
 BEGIN_MESSAGE_MAP(Application, CWinApp)
-    ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
-    ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
+    ON_COMMAND(ID_FILE_NEW, OnFileNew)
+    ON_COMMAND(ID_FILE_OPEN, OnFileOpen)
 END_MESSAGE_MAP()
 
 BOOL Application::InitInstance()

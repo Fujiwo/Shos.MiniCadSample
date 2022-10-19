@@ -34,7 +34,8 @@ struct Hint : public CObject
 
 class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
-    static const LONG size = 2000L;
+    static const LONG size                   = 2000L;
+    static const LONG minimumLogicalAreaSize = size / 100L;
 
     shos::undo_redo_vector<Figure*>   figures;
     const Figure* highlightedFigure;
@@ -44,8 +45,9 @@ class Model : public Observable<Hint>, public Observer<FigureAttribute>
 public:
     using iterator = shos::undo_redo_vector<Figure*>::const_iterator;
 
-    const CSize GetSize() const { return CSize(size, size); }
-    const CRect GetArea() const { return CRect(CPoint(), GetSize()); }
+    static const CSize GetMinimumSize() { return CSize(minimumLogicalAreaSize, minimumLogicalAreaSize); }
+    static const CSize GetSize()        { return CSize(size, size); }
+    static const CRect GetArea()        { return CRect(CPoint(), GetSize()); }
 
     Model() : highlightedFigure(nullptr)
     {}
