@@ -1,6 +1,6 @@
 #pragma once
 #include <afx.h>
-#include <limits>
+#include "Geometry.h"
 #include "Model.h"
 
 class Cursor
@@ -14,9 +14,9 @@ public:
 			CString textline;
 			auto name = GetName();
 			if (name.IsEmpty())
-				textline.Format(_T("%s"), GetMessage());
+				textline.Format(_T("%s"), GetMessage().GetString());
 			else
-				textline.Format(_T("[%s] %s"), GetName(), GetMessage());
+				textline.Format(_T("[%s] %s"), GetName(), GetMessage().GetString());
 			return textline;
 		}
 
@@ -215,7 +215,7 @@ protected:
 private:
 	Figure* GetNearestFigure(CPoint point, long* distance = nullptr)
 	{
-		auto   minimumDistance = std::numeric_limits<long>::max();
+		auto	   minimumDistance = Geometry::maximumDistance;
 		Figure*    nearestFigure   = nullptr;
 
 		CRect	   searchinRect(point, point);

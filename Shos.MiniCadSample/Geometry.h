@@ -3,13 +3,11 @@
 #include <afx.h>
 #include <vector>
 
-#ifdef max
-#undef max
-#endif // max
-
 class Geometry
 {
 public:
+    static const long maximumDistance;
+
     template <class T>
     static T Square(T x)
     {
@@ -57,11 +55,11 @@ public:
     static long GetDistance(CPoint point, const CRect& rect)
     {
         auto points = ToPoints(rect);
-        auto distance = std::numeric_limits<long>::max();
+        auto distance = maximumDistance;
 
         for (size_t index = 0; index < points.size(); index++) {
             auto eachDistance = GetDistanceToLineSegment(point, points[index], points[(index + 1) % points.size()]);
-			if (eachDistance < distance)
+            if (eachDistance < distance)
                 distance = eachDistance;
         }
         return distance;

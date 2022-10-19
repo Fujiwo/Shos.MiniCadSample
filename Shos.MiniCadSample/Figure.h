@@ -7,10 +7,6 @@
 #include "GdiObjectSelector.h"
 #include "Geometry.h"
 
-#ifdef max
-#undef max
-#endif // max
-
 class Figure : public CObject
 {
 	static const long	  selectorSize	   = 10L;
@@ -88,10 +84,7 @@ public:
 		return area;
 	}
 
-	virtual long GetDistanceFrom(CPoint point) const
-	{
-		return std::numeric_limits<long>::max();
-	}
+	virtual long GetDistanceFrom(CPoint point) const;
 		
 	virtual void Serialize(CArchive& ar) override
 	{
