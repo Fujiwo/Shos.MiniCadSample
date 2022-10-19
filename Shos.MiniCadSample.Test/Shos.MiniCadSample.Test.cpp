@@ -6,6 +6,8 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace ShosMiniCadSampleTest
 {
+	using namespace shos;
+
 	TEST_CLASS(undo_redo_vector_test)
 	{
 	public:

@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 
+namespace shos {
+
 template <typename TElement>
 class undo_redo_vector
 {
@@ -363,3 +365,5 @@ private:
 		undo_steps_index		= 0;
 	}
 };
+
+} // namespace shos

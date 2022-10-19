@@ -36,13 +36,13 @@ class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
 	static const LONG size = 2000L;
 
-	undo_redo_vector<Figure*>   figures;
+	shos::undo_redo_vector<Figure*>   figures;
 	const Figure* highlightedFigure;
 
 	FigureAttribute currentFigureAttribute;
 
 public:
-	using iterator = undo_redo_vector<Figure*>::const_iterator;
+	using iterator = shos::undo_redo_vector<Figure*>::const_iterator;
 
 	const CSize GetSize() const { return CSize(size, size); }
 	const CRect GetArea() const { return CRect(CPoint(), GetSize()); }
@@ -73,7 +73,7 @@ public:
 
 	void Update(std::vector<Figure*> selectedFigures, const FigureAttribute& figureAttribute)
 	{
-		undo_redo_vector<Figure*>::transaction transaction(figures);
+		shos::undo_redo_vector<Figure*>::transaction transaction(figures);
 		for (auto figure : selectedFigures) {
 			auto updatedFigure = figure->Clone();
 			updatedFigure->Attribute() = figureAttribute;
