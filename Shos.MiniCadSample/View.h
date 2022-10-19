@@ -159,13 +159,23 @@ protected:
     {
         logicalArea = area;
         logicalArea.IntersectRect(logicalArea, GetDocument().GetArea());
-
-        const CRect minimumLogicalArea(CPoint(), Document::GetMinimumSize());
-        logicalArea.UnionRect(logicalArea, minimumLogicalArea);
+        logicalArea = EnlargeTo(logicalArea, Document::GetMinimumSize());
 
         Update();
         Invalidate();
     }
+
+    static CRect EnlargeTo(const CRect& rect, CSize size)
+    {
+        auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
+        if (d <= 0)
+            return rect;
+
+        CRect newRect = rect;
+        newRect.InflateRect(d, d);
+        return newRect;
+    }
+
 #endif // ZOOMING_VIEW
 
     afx_msg void OnDestroyClipboard()

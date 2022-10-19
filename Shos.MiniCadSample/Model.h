@@ -35,7 +35,7 @@ struct Hint : public CObject
 class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
     static const LONG size                   = 2000L;
-    static const LONG minimumLogicalAreaSize = size / 100L;
+    static const LONG minimumLogicalAreaSize = size / 10L;
 
     shos::undo_redo_vector<Figure*>   figures;
     const Figure* highlightedFigure;
