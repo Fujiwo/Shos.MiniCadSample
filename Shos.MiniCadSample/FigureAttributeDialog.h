@@ -14,7 +14,6 @@ public:
 
 	void Set(const FigureAttribute& figureAttribute)
 	{
-		//this->figureAttribute = &figureAttribute;
 		this->figureAttribute = figureAttribute;
 		UpdateData(false);
 	}
@@ -32,6 +31,25 @@ protected:
 
 	DECLARE_DYNAMIC(FigureAttributeDialog)
 	DECLARE_MESSAGE_MAP()
+
+private:
+	void Save(CDataExchange* pDX)
+	{
+		SaveColor();
+		SavePenWidth(pDX);
+	}
+
+	void SaveColor();
+	void SavePenWidth(CDataExchange* pDX);
+
+	void Load(CDataExchange* pDX)
+	{
+		LoadColor();
+		LoadPenWidth(pDX);
+	}
+
+	void LoadColor();
+	void LoadPenWidth(CDataExchange* pDX);
 
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_FIGURE_ATTRIBUTE_DIALOG };
