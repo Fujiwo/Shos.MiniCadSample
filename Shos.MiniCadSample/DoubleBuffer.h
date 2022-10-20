@@ -162,9 +162,9 @@ class DoubleBufferScrollView : public DoubleBufferViewBase<CScrollView>
         Invalidate();
     }
 
-    afx_msg BOOL OnMouseWheel(UINT nFlags, short delta, CPoint point)
+    afx_msg BOOL OnMouseWheel(UINT keys, short delta, CPoint point)
     {
-        auto result = DoubleBufferViewBase<CScrollView>::OnMouseWheel(nFlags, delta, point);
+        auto result = DoubleBufferViewBase<CScrollView>::OnMouseWheel(keys, delta, point);
         Update();
         Invalidate();
         return result;

@@ -3,6 +3,7 @@
 #include <afx.h>
 #include "Geometry.h"
 #include "Model.h"
+#include "MouseEventTranslator.h"
 
 class Cursor
 {
@@ -118,7 +119,7 @@ private:
     }
 };
 
-class Command : public CObject, public Cursor::MessageHolder
+class Command : public CObject, public Cursor::MessageHolder, public MouseEventTranslator::Listener
 {
     Model* model;
     Cursor cursor;
@@ -145,10 +146,10 @@ public:
         OnDraw(dc);
     }
 
-    virtual void OnInput(CPoint /* point */)
+    virtual void OnInput(CPoint /* point */) override
     {}
 
-    void OnCursor(CPoint point)
+    virtual void OnCursor(CPoint point) override
     {
         cursor.SetCursorPosition(point);
         OnCursorMove(point);
@@ -456,7 +457,7 @@ protected:
     DECLARE_DYNCREATE(EllipseCommand)
 };
 
-class CommandManager
+class CommandManager : public MouseEventTranslator::Listener
 {
     Model&    model;
     Command*  currentCommand;
@@ -490,13 +491,13 @@ public:
             GetCurrentCommand()->Draw(dc);
     }
 
-    void OnInput(CPoint point)
+    virtual void OnInput(CPoint point) override
     {
         if (GetCurrentCommand() != nullptr)
             GetCurrentCommand()->OnInput(point);
     }
 
-    void OnCursor(CPoint point)
+    virtual void OnCursor(CPoint point) override
     {
         if (GetCurrentCommand() != nullptr)
             GetCurrentCommand()->OnCursor(point);

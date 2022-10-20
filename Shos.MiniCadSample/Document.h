@@ -2,8 +2,9 @@
 
 #include "Model.h"
 #include "Command.h"
+#include "MouseEventTranslator.h"
 
-class Document : public CDocument, public Observer<Hint>
+class Document : public CDocument, public Observer<Hint>, public MouseEventTranslator::Listener
 {
     static const COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
 
@@ -61,14 +62,14 @@ public:
     {
         commandManager.Draw(dc);
     }
-
-    void OnInput(CPoint point)
+    
+    virtual void OnInput(CPoint point) override
     {
         if (IsValid(point))
             commandManager.OnInput(point);
     }
 
-    void OnCursor(CPoint point)
+    virtual void OnCursor(CPoint point) override
     {
         if (IsValid(point))
             commandManager.OnCursor(point);

@@ -4,7 +4,11 @@
 
 #include "DoubleBuffer.h"
 #include "ClipboardHelper.h"
+#ifdef ZOOMING_VIEW
+#include "Zooming.h"
+#endif // ZOOMING_VIEW
 #include "MainFrame.h"
+#include "MouseEventTranslator.h"
 
 class View : public
 #ifdef SCROLL_VIEW
@@ -14,88 +18,25 @@ class View : public
 #endif // SCROLL_VIEW 
 {
 #ifdef ZOOMING_VIEW
-    class Zooming
-    {
-        const CSize minimumSize;
-        const CRect maximumArea;
-        CRect       logicalArea;
-        CWnd&       window;
-
-    public:
-        Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
-            : window(window), minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea)
-        {
-            ASSERT_VALID(&window);
-        }
-
-        void PrepareDC(CDC& dc)
-        {
-            dc.SetMapMode(MM_ISOTROPIC);
-
-            dc.SetWindowOrg(logicalArea.CenterPoint());
-            dc.SetWindowExt(logicalArea.Size());
-
-            CRect clientRect;
-            window.GetClientRect(clientRect);
-            dc.SetViewportOrg(clientRect.CenterPoint());
-            dc.SetViewportExt(clientRect.Size());
-        }
-
-        bool OnMouseWheel(UINT keys, short delta, CPoint point)
-        {
-            if ((keys & MK_CONTROL) == 0)
-                return false;
-            DPtoLP(point);
-
-            const auto deltaValue = delta / (double)WHEEL_DELTA;
-            const auto denominator = 10.0;
-            auto            newLogicalArea = logicalArea;
-
-            Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
-            SetLogicalArea(newLogicalArea);
-
-            return true;
-        }
-
-    private:
-        void SetLogicalArea(const CRect& area)
-        {
-            logicalArea = area;
-            logicalArea.IntersectRect(logicalArea, maximumArea);
-            logicalArea = EnlargeTo(logicalArea, minimumSize);
-        }
-
-        static CRect EnlargeTo(const CRect& rect, CSize size)
-        {
-            auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
-            if (d <= 0)
-                return rect;
-
-            CRect newRect = rect;
-            newRect.InflateRect(d, d);
-            return newRect;
-        }
-
-        CPoint DPtoLP(CPoint point)
-        {
-            ASSERT(window.GetSafeHwnd() != nullptr);
-
-            CClientDC dc(&window);
-            PrepareDC(dc);
-            dc.DPtoLP(&point);
-            return point;
-        }
-    };
-
-    //CRect logicalArea;
     Zooming zooming;
 #endif // ZOOMING_VIEW
 
+
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+    MouseEventTranslator::TestListener testListener;
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
+    MouseEventTranslator mouseEventTranslator;
+    
 public:
     View()
 #ifdef ZOOMING_VIEW
         : zooming(*this, Document::GetMinimumSize(), Document::GetArea())
 #endif // ZOOMING_VIEW
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        , mouseEventTranslator(*this, testListener)
+#else // MOUSE_EVENT_TRANSLATOR_TEST        
+        , mouseEventTranslator(*this, GetDocument())
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
     {
         SetBackgroundColor(GetBackgroundColor());
     }
@@ -201,14 +142,41 @@ protected:
     {
         ClipboardHelper::OnEditPaste(GetDocument(), *this);
     }
-    
-    afx_msg void OnLButtonUp(UINT /* nFlags */, CPoint point)
+
+    afx_msg void OnLButtonDown(UINT keys, CPoint point)
     {
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.OnLButtonDown(keys, point);
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
+    }
+
+    afx_msg void OnLButtonUp(UINT keys, CPoint point)
+    {
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.OnLButtonUp(keys, point);
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
         GetDocument().OnInput(DPtoLP(point));
     }
 
-    afx_msg void OnMouseMove(UINT /* nFlags */, CPoint point)
+    afx_msg void OnRButtonDown(UINT keys, CPoint point)
     {
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.OnRButtonDown(keys, point);
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
+    }
+
+    afx_msg void OnRButtonUp(UINT keys, CPoint point)
+    {
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.OnRButtonUp(keys, point);
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
+    }
+
+    afx_msg void OnMouseMove(UINT keys, CPoint point)
+    {
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.OnMouseMove(keys, point);
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
         GetDocument().OnCursor(DPtoLP(point));
         Invalidate();
     }

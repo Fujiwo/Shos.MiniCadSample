@@ -195,6 +195,7 @@
     <ClInclude Include="Geometry.h" />
     <ClInclude Include="MainFrame.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="MouseEventTranslator.h" />
     <ClInclude Include="Observer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
@@ -202,6 +203,7 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="undo_redo_vector.h" />
     <ClInclude Include="View.h" />
+    <ClInclude Include="Zooming.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClipboardHelper.cpp" />
