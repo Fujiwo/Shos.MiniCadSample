@@ -86,7 +86,7 @@ public:
 
     void Update(Figure& oldFigure, Figure& newFigure)
     {
-        auto iterator = std::find(figures.cbegin(), figures.cend(), &oldFigure);
+        auto iterator = std::find(figures.begin(), figures.end(), &oldFigure);
         if (iterator != figures.cend())
             figures.update(iterator, &newFigure);
     }

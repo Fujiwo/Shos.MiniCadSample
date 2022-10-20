@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 #include "../Shos.MiniCadSample/undo_redo_vector.h"
+#include <vector>
+#include <list>
+#include <iterator>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -11,15 +14,26 @@ namespace ShosMiniCadSampleTest
     TEST_CLASS(undo_redo_vector_test)
     {
     public:
-        TEST_METHOD(check)
+        TEST_METHOD(check_vector)
         {
             std::vector<int> array = { 0, 1, 1, 2, 3, 5, 8, 13 };
             std::vector<int>::iterator iterator = array.begin();
 
             for (; iterator != array.begin(); iterator++)
-            {
                 Assert::AreEqual(*iterator, array[iterator - array.begin()]);
-            }
+
+            iterator = std::find(array.begin(), array.end(), 8);
+            Assert::AreEqual<std::size_t>(6, std::distance(array.begin(), iterator));
+            Assert::AreEqual<std::size_t>(6, iterator - array.begin());
+        }
+        
+        TEST_METHOD(check_list)
+        {
+            std::list<int> array = { 0, 1, 1, 2, 3, 5, 8, 13 };
+            std::list<int>::iterator iterator = array.begin();
+
+            iterator = std::find(array.begin(), array.end(), 8);
+            Assert::AreEqual<std::size_t>(6, std::distance(array.begin(), iterator));
         }
 
         TEST_METHOD(construct)
@@ -56,13 +70,13 @@ namespace ShosMiniCadSampleTest
             array.push_back(600);
             array.push_back(700);
 
-            array.erase(array.begin() + 1);
+            array.erase(std::next(array.begin(), 1));
             Assert::AreEqual<size_t>(array.size(), 3UL);
             Assert::AreEqual<size_t>(array[0], 400);
             Assert::AreEqual<size_t>(array[1], 600);
             Assert::AreEqual<size_t>(array[2], 700);
 
-            array.erase(array.begin() + 2);
+            array.erase(std::next(array.begin(), 2));
             Assert::AreEqual<size_t>(array.size(), 2UL);
             Assert::AreEqual<size_t>(array[0], 400);
             Assert::AreEqual<size_t>(array[1], 600);
@@ -82,7 +96,7 @@ namespace ShosMiniCadSampleTest
             array.push_back(200);
             array.push_back(400);
 
-            array.update(array.begin() + 1, 1200);
+            array.update(std::next(array.begin(), 1), 1200);
             Assert::AreEqual<size_t>(array.size(), 3UL);
             Assert::AreEqual<size_t>(array[0], 100);
             Assert::AreEqual<size_t>(array[1], 1200);
@@ -129,7 +143,7 @@ namespace ShosMiniCadSampleTest
             array.push_back(200);
             array.push_back(400);
 
-            array.erase(array.begin() + 1);
+            array.erase(std::next(array.begin(), 1));
             Assert::IsTrue(array.undo());
 
             Assert::AreEqual<size_t>(array.size(), 3UL);
@@ -137,8 +151,8 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual<size_t>(array[1], 200);
             Assert::AreEqual<size_t>(array[2], 400);
 
-            array.erase(array.begin() + 2);
-            array.erase(array.begin() + 1);
+            array.erase(std::next(array.begin(), 2));
+            array.erase(std::next(array.begin(), 1));
             array.erase(array.begin());
 
             Assert::IsTrue(array.can_undo());
@@ -170,7 +184,7 @@ namespace ShosMiniCadSampleTest
             array.push_back(200);
             array.push_back(400);
 
-            array.update(array.begin() + 1, 1200);
+            array.update(std::next(array.begin(), 1), 1200);
             Assert::AreEqual<size_t>(array.size(), 3UL);
             Assert::AreEqual<size_t>(array[0], 100);
             Assert::AreEqual<size_t>(array[1], 1200);
@@ -200,7 +214,7 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual<size_t>(array[1], 600);
             Assert::AreEqual<size_t>(array[2], 800);
 
-            array.erase(array.begin() + 1);
+            array.erase(std::next(array.begin(), 1));
             array.update(array.begin(), 1200);
             array.erase(array.begin());
             array.push_back(1400);
