@@ -192,6 +192,12 @@ protected:
         ClipboardHelper::OnDestroyClipboard();
     }
 
+    afx_msg void OnKeyDown(UINT nChar, UINT /* nRepCnt */, UINT /* nFlags */)
+    {
+        if (nChar == VK_DELETE)
+            GetDocument().RemoveSelectedFigures();
+    }
+
 private:
     void TrackMouseLeaveEvent() const
     {

@@ -1,6 +1,8 @@
 #pragma once
 
-//#define MOUSE_EVENT_TRANSLATOR_TEST
+#ifdef _DEBUG
+#define MOUSE_EVENT_TRANSLATOR_TEST
+#endif // _DEBUG
 
 #include <afx.h>
 #include <vector>

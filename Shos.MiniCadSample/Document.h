@@ -62,6 +62,11 @@ public:
     {
         commandManager.Draw(dc);
     }
+
+    void RemoveSelectedFigures()
+    {
+        model.RemoveSelectedFigures();
+    }
     
     virtual void OnClick(CPoint point) override
     {
@@ -137,6 +142,16 @@ protected:
     afx_msg void OnUpdateEditRedo(CCmdUI* cmdUI)
     {
         cmdUI->Enable(model.CanRedo() ? 1 : 0);
+    }
+    
+    afx_msg void OnEditDelete()
+    {
+        model.RemoveSelectedFigures();
+    }
+
+    afx_msg void OnUpdateEditDelete(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(model.CanRemoveSelectedFigures() ? 1 : 0);
     }
 
     afx_msg void OnFigureDot()

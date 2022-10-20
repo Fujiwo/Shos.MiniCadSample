@@ -121,6 +121,30 @@ public:
         NotifyObservers(Hint(Hint::Type::Removed, figure));
     }
 
+    void RemoveSelectedFigures()
+    {
+        shos::undo_redo_vector<Figure*>::transaction transaction(figures);
+        
+        auto selectedFigures = GetSelectedFigures();
+
+        std::for_each(selectedFigures.cbegin(), selectedFigures.cend(),
+            [&](Figure* figure) {
+                auto iterator = std::find(figures.begin(), figures.end(), figure);
+                figures.erase(iterator);
+            });
+        SetSelectedFigureAttribute();
+        NotifyObservers(Hint(Hint::Type::Removed, selectedFigures));
+    }
+
+    bool CanRemoveSelectedFigures() const
+    {
+        for (auto iterator = figures.cbegin(); iterator != figures.cend(); iterator++) {
+            if ((*iterator)->IsSelected())
+                return true;
+        }
+        return false;
+    }
+    
     bool Change(Figure* oldFigure, Figure* newFigure)
     {
         auto iterator = std::find(figures.begin(), figures.end(), oldFigure);
