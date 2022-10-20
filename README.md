@@ -13,6 +13,8 @@ Sample of simple CAD.
         * Random
 	* Command
         * Figure selection
+            * Single Figure selection
+            * Multi Figure selection
         * Command switching
         * Dragging input and Clicking input
         * Undo / Redo

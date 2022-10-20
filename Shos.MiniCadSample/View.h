@@ -166,8 +166,15 @@ protected:
 
     afx_msg void OnMouseMove(UINT keys, CPoint point)
     {
+        TrackMouseLeaveEvent();
         mouseEventTranslator.OnMouseMove(keys, point);
         Invalidate();
+    }
+    
+    afx_msg LRESULT OnMouseLeave(WPARAM /* wParam */, LPARAM /* lParam */)
+    {
+        mouseEventTranslator.OnMouseLeave();
+        return 0L;
     }
 
 #ifdef ZOOMING_VIEW
@@ -187,6 +194,16 @@ protected:
     }
 
 private:
+    void TrackMouseLeaveEvent() const
+    {
+        TRACKMOUSEEVENT trackmouseevent;
+        trackmouseevent.cbSize      = sizeof(trackmouseevent);
+        trackmouseevent.dwFlags     = TME_LEAVE;
+        trackmouseevent.hwndTrack   = GetSafeHwnd();
+        trackmouseevent.dwHoverTime = HOVER_DEFAULT;
+        ::TrackMouseEvent(&trackmouseevent);
+    }
+
     static COLORREF GetBackgroundColor()
     {
         return ::GetSysColor(COLOR_WINDOW);

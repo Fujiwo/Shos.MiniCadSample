@@ -131,11 +131,6 @@ protected:
         return *model;
     }
     
-    virtual size_t GetMaximumCount() const
-    {
-        return 0UL;
-    }
-    
 public:
     Command() : model(nullptr)
     {}
@@ -195,18 +190,30 @@ protected:
         return (keys & MK_LBUTTON) != 0L && GetMaximumCount() == 2;
     }
 
+    virtual size_t GetMaximumCount() const
+    {
+        return 0UL;
+    }
+
     DECLARE_DYNCREATE(Command)
 };
 
 class SelectCommand : public Command
 {
-    static const LONG searchingDistance = 100;
+    static const LONG     searchingDistance = 100;
+
+    static const COLORREF areaPenColor      = RGB(0x40, 0x60, 0x80);
+    static const COLORREF areaBrushColor    = RGB(0x20, 0x30, 0x40);
 
     bool              hasDistanceToFigure;
     long              distanceToFigure;
 
+    CPoint            areaTopLeft;
+    CRect             area;
+    bool              isAreaValid;
+
 public:
-    SelectCommand() : hasDistanceToFigure(false), distanceToFigure(0L)
+    SelectCommand() : hasDistanceToFigure(false), distanceToFigure(0L), isAreaValid(false)
     {}
 
 protected:
@@ -214,6 +221,8 @@ protected:
     {
         if (GetModel().Hilight() != nullptr)
             GetModel().Hilight()->DrawArea(dc);
+
+        DrawArea(dc);
     }
 
     virtual void OnInput(CPoint point) override
@@ -233,6 +242,39 @@ protected:
         hasDistanceToFigure       = (nearestFigure != nullptr);
         GetModel().Hilight(nearestFigure);
     }
+    
+    virtual void OnDragStart(UINT keys, CPoint point) override
+    {
+        if (IsDraggable(keys)) {
+            isAreaValid = false;
+            areaTopLeft = point;
+        }
+    }
+
+    virtual void OnDragging(UINT keys, CPoint point) override
+    {
+        if (IsDraggable(keys)) {
+            SetArea(point);
+            isAreaValid = true;
+        }
+    }
+    
+    virtual void OnDraggingAbort() override
+    {
+        isAreaValid = false;
+    }
+
+    virtual void OnDragEnd(UINT keys, CPoint point) override
+    {
+        if (!isAreaValid)
+            return;
+        
+        if (IsDraggable(keys)) {
+            isAreaValid = false;
+            SetArea(point);
+            GetModel().Select(area);
+        }
+    }
 
     virtual CString GetName() const
     {
@@ -245,6 +287,11 @@ protected:
         if (hasDistanceToFigure)
             message.Format(_T("distance: %d"), distanceToFigure);
         return message;
+    }
+
+    virtual size_t GetMaximumCount() const
+    {
+        return 2UL;
     }
 
 private:
@@ -270,7 +317,28 @@ private:
             *distance = nearestFigure == nullptr ? 0L : minimumDistance;
         return nearestFigure;
     }
-    
+
+    void SetArea(CPoint point)
+    {
+        area = CRect(areaTopLeft, point);
+        area.NormalizeRect();
+    }
+
+    void DrawArea(CDC& dc) const
+    {
+        if (isAreaValid) {
+            CPen pen(PS_SOLID, 0, areaPenColor);
+            GdiObjectSelector penSelector(dc, pen);
+
+            CBrush brush(areaBrushColor);
+            GdiObjectSelector brushSelector(dc, brush);
+
+            auto rop = dc.SetROP2(R2_XORPEN);
+            dc.Rectangle(&area);
+            dc.SetROP2(rop);
+        }
+    }
+
     DECLARE_DYNCREATE(SelectCommand)
 };
 
@@ -541,6 +609,12 @@ public:
     {
         if (GetCurrentCommand() != nullptr)
             GetCurrentCommand()->OnDragging(keys, point);
+    }
+
+    virtual void OnDraggingAbort() override
+    {
+        if (GetCurrentCommand() != nullptr)
+            GetCurrentCommand()->OnDraggingAbort();
     }
 
     virtual void OnDragEnd(UINT keys, CPoint point) override

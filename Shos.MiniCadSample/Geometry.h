@@ -111,6 +111,11 @@ public:
         return true;
     }
 
+    static bool InRect(const CRect& outer, const CRect& inner)
+    {
+        return outer.PtInRect(inner.TopLeft()) && outer.PtInRect(inner.BottomRight());
+    }
+
     static CPoint DPtoLP(CView& view, CPoint point)
     {
         CClientDC dc(&view);

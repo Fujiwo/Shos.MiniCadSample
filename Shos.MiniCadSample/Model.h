@@ -116,7 +116,7 @@ public:
         auto iterator = std::find(figures.begin(), figures.end(), figure);
         figures.erase(iterator);
         if ((*iterator)->IsSelected())
-            SeSelectedFigureAttribute();
+            SetSelectedFigureAttribute();
 
         NotifyObservers(Hint(Hint::Type::Removed, figure));
     }
@@ -136,13 +136,22 @@ public:
     void Select(Figure& figure)
     {
         figure.Select(!figure.IsSelected());
-        SeSelectedFigureAttribute();
+        SetSelectedFigureAttribute();
+    }
+
+    void Select(const CRect& area)
+    {
+        std::for_each(figures.begin(), figures.end(),
+                [&](Figure* figure) {
+                         figure->Select(Geometry::InRect(area, figure->GetArea()));
+                      });
+        SetSelectedFigureAttribute();
     }
 
     void UnSelectAll()
     {
         std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
-        SeSelectedFigureAttribute();
+        SetSelectedFigureAttribute();
     }
 
     void Undo()
@@ -238,7 +247,7 @@ private:
         return selectedFigureAttributes;
     }
     
-    void SeSelectedFigureAttribute()
+    void SetSelectedFigureAttribute()
     {
         Application::Set(GetSelectedFigureAttribute());
         NotifyObservers(Hint(Hint::Type::ViewOnly));

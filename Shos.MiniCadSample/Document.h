@@ -85,6 +85,13 @@ public:
     {
         if (IsValid(point))
             commandManager.OnDragging(keys, point);
+        else
+            commandManager.OnDraggingAbort();
+    }
+
+    virtual void OnDraggingAbort() override
+    {
+        commandManager.OnDraggingAbort();
     }
 
     virtual void OnDragEnd(UINT keys, CPoint point) override

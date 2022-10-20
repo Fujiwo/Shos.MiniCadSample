@@ -13,37 +13,52 @@ public:
     public:
         virtual ~Listener() = 0;
 
-        virtual void OnClick    (CPoint /* point */) {}
-        virtual void OnCursor   (CPoint /* point */) {}
-        virtual void OnDragStart(UINT /* keys */, CPoint /* point */) {}
-        virtual void OnDragging (UINT /* keys */, CPoint /* point */) {}
-        virtual void OnDragEnd  (UINT /* keys */, CPoint /* point */) {}
+        virtual void OnClick        (CPoint /* point */) {}
+        virtual void OnCursor       (CPoint /* point */) {}
+        virtual void OnDragStart    (UINT /* keys */, CPoint /* point */) {}
+        virtual void OnDragging     (UINT /* keys */, CPoint /* point */) {}
+        virtual void OnDraggingAbort() {}
+        virtual void OnDragEnd      (UINT /* keys */, CPoint /* point */) {}
     };
 
 #ifdef MOUSE_EVENT_TRANSLATOR_TEST
     class TestListener : public MouseEventTranslator::Listener
     {
     public:
-        virtual void OnClick    (CPoint point)            { Trace(_T("OnClick"    ),       point); }
-        virtual void OnCursor   (CPoint point)            { Trace(_T("OnCursor"   ),       point); }
-        virtual void OnDragStart(UINT keys, CPoint point) { Trace(_T("OnDragStart"), keys, point); }
-        virtual void OnDragging (UINT keys, CPoint point) { Trace(_T("OnDragging" ), keys, point); }
-        virtual void OnDragEnd  (UINT keys, CPoint point) { Trace(_T("OnDragEnd"  ), keys, point); }
+        virtual void OnClick        (CPoint point)            { Trace(_T("OnClick"        ),       point);  }
+        virtual void OnCursor       (CPoint point)            { Trace(_T("OnCursor"       ),       point); }
+        virtual void OnDragStart    (UINT keys, CPoint point) { Trace(_T("OnDragStart"    ), keys, point); }
+        virtual void OnDragging     (UINT keys, CPoint point) { Trace(_T("OnDragging"     ), keys, point); }
+        virtual void OnDraggingAbort()                        { Trace(_T("OnDraggingAbort");               }
+        virtual void OnDragEnd      (UINT keys, CPoint point) { Trace(_T("OnDragEnd"      ), keys, point); }
 
     private:
+        void Trace(LPCTSTR methodName)
+        {
+            TraceMethodName(methodName);
+        }
+
         void Trace(LPCTSTR methodName, CPoint point)
         {
-            TRACE(_T("TestListener - %s: (x: %d, y: %d)\n"), methodName, point.x, point.y);
+            TraceMethodName(methodName);
+            TRACE(_T("(x: %d, y: %d)\n"), methodName, point.x, point.y);
         }
 
         void Trace(LPCTSTR methodName, UINT keys, CPoint point)
         {
+            TraceMethodName(methodName);
+
             CString keysText;
             if ((keys & MK_LBUTTON) != 0L)
                 keysText += _T("L");
             if ((keys & MK_RBUTTON) != 0L)
                 keysText += _T("R");
-            TRACE(_T("TestListener - %s: %s (x: %d, y: %d)\n"), methodName, keysText.GetString(), point.x, point.y);
+            TRACE(_T("%s (x: %d, y: %d)\n"), keysText.GetString(), point.x, point.y);
+        }
+
+        void TraceMethodName(LPCTSTR methodName)
+        {
+            TRACE(_T("TestListener - %s: "), methodName);
         }
     };
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
@@ -100,10 +115,18 @@ public:
         if ((keys & MK_LBUTTON) != 0L || (keys & MK_RBUTTON) != 0L) {
             if (isDragging)
                 OnDragging(keys, point);
-            else
+            else if (points.size() > 0)
                 OnDrag(keys, point);
         } else {
             OnCursor(point);
+        }
+    }
+
+    void OnMouseLeave()
+    {
+        if (isDragging) {
+            OnDraggingAbort();
+            Clear();
         }
     }
 
@@ -158,6 +181,11 @@ private:
     {
         auto logicalPoint = DPtoLP(point);
         std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragging(keys, logicalPoint); });
+    }
+
+    void OnDraggingAbort()
+    {
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDraggingAbort(); });
     }
 
     void OnDragEnd(UINT keys, CPoint point)
