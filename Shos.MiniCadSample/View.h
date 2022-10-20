@@ -55,9 +55,8 @@ protected:
 
 #ifdef MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.AddListener(testListener);
-#else // MOUSE_EVENT_TRANSLATOR_TEST
-        mouseEventTranslator.AddListener(GetDocument());
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.AddListener(GetDocument());
     }
 
 #ifndef SCROLL_VIEW

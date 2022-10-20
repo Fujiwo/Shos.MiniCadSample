@@ -25,11 +25,11 @@ public:
     class TestListener : public MouseEventTranslator::Listener
     {
     public:
-        virtual void OnClick        (CPoint point)            { Trace(_T("OnClick"        ),       point);  }
+        virtual void OnClick        (CPoint point)            { Trace(_T("OnClick"        ),       point); }
         virtual void OnCursor       (CPoint point)            { Trace(_T("OnCursor"       ),       point); }
         virtual void OnDragStart    (UINT keys, CPoint point) { Trace(_T("OnDragStart"    ), keys, point); }
         virtual void OnDragging     (UINT keys, CPoint point) { Trace(_T("OnDragging"     ), keys, point); }
-        virtual void OnDraggingAbort()                        { Trace(_T("OnDraggingAbort");               }
+        virtual void OnDraggingAbort()                        { Trace(_T("OnDraggingAbort")             ); }
         virtual void OnDragEnd      (UINT keys, CPoint point) { Trace(_T("OnDragEnd"      ), keys, point); }
 
     private:
