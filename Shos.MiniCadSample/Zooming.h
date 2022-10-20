@@ -36,8 +36,8 @@ public:
             return false;
         DPtoLP(point);
 
-        const auto deltaValue = delta / (double)WHEEL_DELTA;
-        const auto denominator = 10.0;
+        const auto deltaValue     = delta / (double)WHEEL_DELTA;
+        const auto denominator    = 10.0;
         auto            newLogicalArea = logicalArea;
 
         Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
