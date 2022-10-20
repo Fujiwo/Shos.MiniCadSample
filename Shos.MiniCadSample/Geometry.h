@@ -111,6 +111,22 @@ public:
         return true;
     }
 
+    static CPoint DPtoLP(CView& view, CPoint point)
+    {
+        CClientDC dc(&view);
+        view.OnPrepareDC(&dc);
+        dc.DPtoLP(&point);
+        return point;
+    }
+
+    static CRect LPtoDP(CView& view, CRect rect)
+    {
+        CClientDC dc(&view);
+        view.OnPrepareDC(&dc);
+        dc.LPtoDP(rect);
+        return rect;
+    }
+
     static int DPtoLP(CDC& dc, int size)
     {
         CRect rect(0, 0, size, size);

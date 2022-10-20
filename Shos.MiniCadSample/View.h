@@ -13,8 +13,89 @@ class View : public
     DoubleBufferView
 #endif // SCROLL_VIEW 
 {
+#ifdef ZOOMING_VIEW
+    class Zooming
+    {
+        const CSize minimumSize;
+        const CRect maximumArea;
+        CRect       logicalArea;
+        CWnd&       window;
+
+    public:
+        Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
+            : window(window), minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea)
+        {
+            ASSERT_VALID(&window);
+        }
+
+        void PrepareDC(CDC& dc)
+        {
+            dc.SetMapMode(MM_ISOTROPIC);
+
+            dc.SetWindowOrg(logicalArea.CenterPoint());
+            dc.SetWindowExt(logicalArea.Size());
+
+            CRect clientRect;
+            window.GetClientRect(clientRect);
+            dc.SetViewportOrg(clientRect.CenterPoint());
+            dc.SetViewportExt(clientRect.Size());
+        }
+
+        bool OnMouseWheel(UINT keys, short delta, CPoint point)
+        {
+            if ((keys & MK_CONTROL) == 0)
+                return false;
+            DPtoLP(point);
+
+            const auto deltaValue = delta / (double)WHEEL_DELTA;
+            const auto denominator = 10.0;
+            auto            newLogicalArea = logicalArea;
+
+            Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
+            SetLogicalArea(newLogicalArea);
+
+            return true;
+        }
+
+    private:
+        void SetLogicalArea(const CRect& area)
+        {
+            logicalArea = area;
+            logicalArea.IntersectRect(logicalArea, maximumArea);
+            logicalArea = EnlargeTo(logicalArea, minimumSize);
+        }
+
+        static CRect EnlargeTo(const CRect& rect, CSize size)
+        {
+            auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
+            if (d <= 0)
+                return rect;
+
+            CRect newRect = rect;
+            newRect.InflateRect(d, d);
+            return newRect;
+        }
+
+        CPoint DPtoLP(CPoint point)
+        {
+            ASSERT(window.GetSafeHwnd() != nullptr);
+
+            CClientDC dc(&window);
+            PrepareDC(dc);
+            dc.DPtoLP(&point);
+            return point;
+        }
+    };
+
+    //CRect logicalArea;
+    Zooming zooming;
+#endif // ZOOMING_VIEW
+
 public:
     View()
+#ifdef ZOOMING_VIEW
+        : zooming(*this, Document::GetMinimumSize(), Document::GetArea())
+#endif // ZOOMING_VIEW
     {
         SetBackgroundColor(GetBackgroundColor());
     }
@@ -33,45 +114,44 @@ protected:
         SetScrollSizes(MM_TEXT, GetDocument().GetSize());
 #endif // SCROLL_VIEW 
 
-        //Document& document = GetDocument();
-        //FigureAttribute& fa = document.GetCurrentFigureAttribute();
-        
         Application::Set(GetDocument().GetCurrentFigureAttribute());
         Application::SetFigureAttributeObserver(GetDocument().GetModel());
-
-#ifdef ZOOMING_VIEW
-        logicalArea = GetDocument().GetArea();
-#endif // ZOOMING_VIEW
     }
 
 #ifndef SCROLL_VIEW
     virtual void OnPrepareDC(CDC* dc, CPrintInfo* pInfo = nullptr) override
     {
         DoubleBufferView::OnPrepareDC(dc, pInfo);
-
-        dc->SetMapMode(MM_ISOTROPIC);
+        ASSERT_VALID(dc);
 
 #ifdef ZOOMING_VIEW
-        dc->SetWindowOrg(logicalArea.CenterPoint());
-        dc->SetWindowExt(logicalArea.Size());
-#elif // ZOOMING_VIEW
-        auto documentArea = GetDocument().GetArea();
-        dc->SetWindowOrg(documentArea.CenterPoint());
-        dc->SetWindowExt(documentArea.Size());
+        zooming.PrepareDC(*dc);
+#else // ZOOMING_VIEW
+#ifndef SCROLL_VIEW
+        PrepareDC(*dc);
+#endif // SCROLL_VIEW
 #endif // ZOOMING_VIEW
+    }
+
+#ifndef ZOOMING_VIEW
+#ifndef SCROLL_VIEW
+    void PrepareDC(CDC& dc)
+    {
+        dc.SetMapMode(MM_ISOTROPIC);
+
+        auto documentArea = GetDocument().GetArea();
+        dc.SetWindowOrg(documentArea.CenterPoint());
+        dc.SetWindowExt(documentArea.Size());
 
         CRect clientRect;
         GetClientRect(clientRect);
-        dc->SetViewportOrg(clientRect.CenterPoint());
-        dc->SetViewportExt(clientRect.Size());
+        dc.SetViewportOrg(clientRect.CenterPoint());
+        dc.SetViewportExt(clientRect.Size());
     }
 #endif // SCROLL_VIEW
+#endif // ZOOMING_VIEW
 
-    //virtual void OnDraw(CDC* pDC) override
-    //{
-    //  DrawFigures(*pDC, GetDocument());
-    //}
-
+#endif // SCROLL_VIEW
     virtual void OnDrawLayer1(CDC& dc)
     {
         GetDocument().DrawArea(dc);
@@ -134,48 +214,14 @@ protected:
     }
 
 #ifdef ZOOMING_VIEW
-    CRect logicalArea;
-#endif // ZOOMING_VIEW
-
-#ifdef ZOOMING_VIEW
     afx_msg BOOL OnMouseWheel(UINT keys, short delta, CPoint point)
     {
-        if ((keys & MK_CONTROL) != 0) {
-            DPtoLP(point);
-
-            const auto deltaValue = delta / (double)WHEEL_DELTA;
-            
-            const auto denominator = 10.0;
-            auto newLogicalArea = logicalArea;
-            Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
-            SetLogicalArea(newLogicalArea);
+        if (zooming.OnMouseWheel(keys, delta, point)) {
+            Update();
+            Invalidate();
         }
         return DoubleBufferView::OnMouseWheel(keys, delta, point);
     }
-#endif // ZOOMING_VIEW
-
-#ifdef ZOOMING_VIEW
-    void SetLogicalArea(const CRect& area)
-    {
-        logicalArea = area;
-        logicalArea.IntersectRect(logicalArea, GetDocument().GetArea());
-        logicalArea = EnlargeTo(logicalArea, Document::GetMinimumSize());
-
-        Update();
-        Invalidate();
-    }
-
-    static CRect EnlargeTo(const CRect& rect, CSize size)
-    {
-        auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
-        if (d <= 0)
-            return rect;
-
-        CRect newRect = rect;
-        newRect.InflateRect(d, d);
-        return newRect;
-    }
-
 #endif // ZOOMING_VIEW
 
     afx_msg void OnDestroyClipboard()
@@ -216,18 +262,12 @@ private:
 
     CPoint DPtoLP(CPoint point)
     {
-        CClientDC dc(this);
-        OnPrepareDC(&dc);
-        dc.DPtoLP(&point);
-        return point;
+        return Geometry::DPtoLP(*this, point);
     }
 
     CRect LPtoDP(CRect rect)
     {
-        CClientDC dc(this);
-        OnPrepareDC(&dc);
-        dc.LPtoDP(rect);
-        return rect;
+        return Geometry::LPtoDP(*this, rect);
     }
 
     DECLARE_DYNCREATE(View)
