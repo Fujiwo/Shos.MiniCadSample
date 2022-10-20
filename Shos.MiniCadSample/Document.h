@@ -75,6 +75,24 @@ public:
             commandManager.OnCursor(point);
     }
 
+    virtual void OnDragStart(UINT keys, CPoint point) override
+    {
+        if (IsValid(point))
+            commandManager.OnDragStart(keys, point);
+    }
+
+    virtual void OnDragging(UINT keys, CPoint point) override
+    {
+        if (IsValid(point))
+            commandManager.OnDragging(keys, point);
+    }
+
+    virtual void OnDragEnd(UINT keys, CPoint point) override
+    {
+        if (IsValid(point))
+            commandManager.OnDragEnd(keys, point);
+    }
+
 protected:
     virtual void Update(const Hint& hint) override
     {

@@ -131,6 +131,11 @@ protected:
         return *model;
     }
     
+    virtual size_t GetMaximumCount() const
+    {
+        return 0UL;
+    }
+    
 public:
     Command() : model(nullptr)
     {}
@@ -146,8 +151,28 @@ public:
         OnDraw(dc);
     }
 
-    virtual void OnClick(CPoint /* point */) override
-    {}
+    virtual void OnDragStart(UINT keys, CPoint point) override
+    {
+        if (IsDraggable(keys))
+            OnClick(point);
+    }
+
+    virtual void OnDragEnd(UINT keys, CPoint point) override
+    {
+        if (IsDraggable(keys))
+            OnClick(point);
+    }
+
+    virtual void OnDragging(UINT keys, CPoint point) override
+    {
+        if (IsDraggable(keys))
+            OnCursor(point);
+    }
+
+    virtual void OnClick(CPoint point) override
+    {
+        OnInput(point);
+    }
 
     virtual void OnCursor(CPoint point) override
     {
@@ -159,8 +184,16 @@ protected:
     virtual void OnDraw(CDC& /* dc */)
     {}
 
+    virtual void OnInput(CPoint /* point */)
+    {}
+
     virtual void OnCursorMove(CPoint /* point */)
     {}
+
+    virtual bool IsDraggable(UINT keys)
+    {
+        return (keys & MK_LBUTTON) != 0L && GetMaximumCount() == 2;
+    }
 
     DECLARE_DYNCREATE(Command)
 };
@@ -183,7 +216,7 @@ protected:
             GetModel().Hilight()->DrawArea(dc);
     }
 
-    virtual void OnClick(CPoint point) override
+    virtual void OnInput(CPoint point) override
     {
         TRACE(_T("OnClick(x: %d, y: %d)\n"), point.x, point.y);
 
@@ -262,14 +295,14 @@ protected:
         }
     }
 
-    virtual void OnClick(CPoint point) override
+    virtual void OnInput(CPoint point) override
     {
         if (Input(GetCount(), point))
             points.push_back(point);
         else
             return;
 
-        if (GetCount() == GetMaxCount()) {
+        if (GetCount() == GetMaximumCount()) {
             auto figure = CreateFigure();
             ASSERT_VALID(figure);
             GetModel().Add(figure);
@@ -301,11 +334,6 @@ protected:
     virtual Figure* GetFigure(CPoint /* point */) = 0;
     virtual Figure* CreateFigure() = 0;
 
-    virtual size_t GetMaxCount() const
-    {
-        return 2;
-    }
-
     virtual bool Input(size_t /* count */, CPoint /* point */)
     {
         return true;
@@ -328,7 +356,7 @@ protected:
         return new DotFigure(GetPoint(0));
     }
 
-    virtual size_t GetMaxCount() const
+    virtual size_t GetMaximumCount() const override
     {
         return 1;
     }
@@ -364,7 +392,7 @@ protected:
         return new LineFigure(GetPoint(0), GetPoint(1));
     }
 
-    virtual size_t GetMaxCount() const
+    virtual size_t GetMaximumCount() const override
     {
         return 2;
     }
@@ -390,7 +418,7 @@ protected:
 class RectangleBaseCommand : public AddFigureCommand
 {
 protected:
-    virtual size_t GetMaxCount() const
+    virtual size_t GetMaximumCount() const override
     {
         return 2;
     }
@@ -501,6 +529,24 @@ public:
     {
         if (GetCurrentCommand() != nullptr)
             GetCurrentCommand()->OnCursor(point);
+    }
+
+    virtual void OnDragStart(UINT keys, CPoint point) override
+    {
+        if (GetCurrentCommand() != nullptr)
+            GetCurrentCommand()->OnDragStart(keys, point);
+    }
+
+    virtual void OnDragging(UINT keys, CPoint point) override
+    {
+        if (GetCurrentCommand() != nullptr)
+            GetCurrentCommand()->OnDragging(keys, point);
+    }
+
+    virtual void OnDragEnd(UINT keys, CPoint point) override
+    {
+        if (GetCurrentCommand() != nullptr)
+            GetCurrentCommand()->OnDragEnd(keys, point);
     }
 
 private:
