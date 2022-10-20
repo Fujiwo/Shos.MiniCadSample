@@ -13,7 +13,7 @@ public:
     public:
         virtual ~Listener() = 0;
 
-        virtual void OnInput    (CPoint /* point */) {}
+        virtual void OnClick    (CPoint /* point */) {}
         virtual void OnCursor   (CPoint /* point */) {}
         virtual void OnDragStart(UINT /* keys */, CPoint /* point */) {}
         virtual void OnDragging (UINT /* keys */, CPoint /* point */) {}
@@ -24,7 +24,7 @@ public:
     class TestListener : public MouseEventTranslator::Listener
     {
     public:
-        virtual void OnInput    (CPoint point)            { Trace(_T("OnInput"    ),       point); }
+        virtual void OnClick    (CPoint point)            { Trace(_T("OnClick"    ),       point); }
         virtual void OnCursor   (CPoint point)            { Trace(_T("OnCursor"   ),       point); }
         virtual void OnDragStart(UINT keys, CPoint point) { Trace(_T("OnDragStart"), keys, point); }
         virtual void OnDragging (UINT keys, CPoint point) { Trace(_T("OnDragging" ), keys, point); }
@@ -76,7 +76,7 @@ public:
         if (isDragging)
             OnDragEnd(MK_LBUTTON, point);
         else
-            OnInput(point);
+            OnClick(point);
         Clear();
     }
 
@@ -91,7 +91,7 @@ public:
         if (isDragging)
             OnDragEnd(MK_RBUTTON, point);
         else
-            OnInput(point);
+            OnClick(point);
         Clear();
     }
 
@@ -136,10 +136,10 @@ private:
         }
     }
 
-    void OnInput(CPoint point)
+    void OnClick(CPoint point)
     {
         auto logicalPoint = DPtoLP(point);
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnInput(logicalPoint); });
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnClick(logicalPoint); });
     }
 
     void OnCursor(CPoint point)

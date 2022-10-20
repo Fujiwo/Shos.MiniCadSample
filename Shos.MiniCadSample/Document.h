@@ -63,10 +63,10 @@ public:
         commandManager.Draw(dc);
     }
     
-    virtual void OnInput(CPoint point) override
+    virtual void OnClick(CPoint point) override
     {
         if (IsValid(point))
-            commandManager.OnInput(point);
+            commandManager.OnClick(point);
     }
 
     virtual void OnCursor(CPoint point) override

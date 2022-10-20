@@ -146,7 +146,7 @@ public:
         OnDraw(dc);
     }
 
-    virtual void OnInput(CPoint /* point */) override
+    virtual void OnClick(CPoint /* point */) override
     {}
 
     virtual void OnCursor(CPoint point) override
@@ -183,9 +183,9 @@ protected:
             GetModel().Hilight()->DrawArea(dc);
     }
 
-    virtual void OnInput(CPoint point) override
+    virtual void OnClick(CPoint point) override
     {
-        TRACE(_T("OnInput(x: %d, y: %d)\n"), point.x, point.y);
+        TRACE(_T("OnClick(x: %d, y: %d)\n"), point.x, point.y);
 
         auto nearestFigure = GetNearestFigure(point);
         if (nearestFigure == nullptr)
@@ -262,7 +262,7 @@ protected:
         }
     }
 
-    virtual void OnInput(CPoint point) override
+    virtual void OnClick(CPoint point) override
     {
         if (Input(GetCount(), point))
             points.push_back(point);
@@ -491,10 +491,10 @@ public:
             GetCurrentCommand()->Draw(dc);
     }
 
-    virtual void OnInput(CPoint point) override
+    virtual void OnClick(CPoint point) override
     {
         if (GetCurrentCommand() != nullptr)
-            GetCurrentCommand()->OnInput(point);
+            GetCurrentCommand()->OnClick(point);
     }
 
     virtual void OnCursor(CPoint point) override
