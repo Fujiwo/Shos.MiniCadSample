@@ -28,15 +28,10 @@ class View : public
     MouseEventTranslator mouseEventTranslator;
     
 public:
-    View()
+    View() : mouseEventTranslator(*this)
 #ifdef ZOOMING_VIEW
-        : zooming(*this, Document::GetMinimumSize(), Document::GetArea())
+    , zooming(*this, Document::GetMinimumSize(), Document::GetArea())
 #endif // ZOOMING_VIEW
-#ifdef MOUSE_EVENT_TRANSLATOR_TEST
-        , mouseEventTranslator(*this, testListener)
-#else // MOUSE_EVENT_TRANSLATOR_TEST        
-        , mouseEventTranslator(*this, GetDocument())
-#endif // MOUSE_EVENT_TRANSLATOR_TEST
     {
         SetBackgroundColor(GetBackgroundColor());
     }
@@ -57,6 +52,12 @@ protected:
 
         Application::Set(GetDocument().GetCurrentFigureAttribute());
         Application::SetFigureAttributeObserver(GetDocument().GetModel());
+
+#ifdef MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.AddListener(testListener);
+#else // MOUSE_EVENT_TRANSLATOR_TEST
+        mouseEventTranslator.AddListener(GetDocument());
+#endif // MOUSE_EVENT_TRANSLATOR_TEST
     }
 
 #ifndef SCROLL_VIEW
@@ -145,39 +146,27 @@ protected:
 
     afx_msg void OnLButtonDown(UINT keys, CPoint point)
     {
-#ifdef MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.OnLButtonDown(keys, point);
-#endif // MOUSE_EVENT_TRANSLATOR_TEST
     }
 
     afx_msg void OnLButtonUp(UINT keys, CPoint point)
     {
-#ifdef MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.OnLButtonUp(keys, point);
-#endif // MOUSE_EVENT_TRANSLATOR_TEST
-        GetDocument().OnInput(DPtoLP(point));
     }
 
     afx_msg void OnRButtonDown(UINT keys, CPoint point)
     {
-#ifdef MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.OnRButtonDown(keys, point);
-#endif // MOUSE_EVENT_TRANSLATOR_TEST
     }
 
     afx_msg void OnRButtonUp(UINT keys, CPoint point)
     {
-#ifdef MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.OnRButtonUp(keys, point);
-#endif // MOUSE_EVENT_TRANSLATOR_TEST
     }
 
     afx_msg void OnMouseMove(UINT keys, CPoint point)
     {
-#ifdef MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.OnMouseMove(keys, point);
-#endif // MOUSE_EVENT_TRANSLATOR_TEST
-        GetDocument().OnCursor(DPtoLP(point));
         Invalidate();
     }
 

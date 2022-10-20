@@ -51,16 +51,19 @@ public:
 private:
     static const long dragStartingDistance = 5;
     
-    CView&              view;
-    Listener&           lister;
-    //CPoint              firstPoint;
-    bool                hasPoint;
-    bool                isDragging;
-    std::vector<CPoint> points;
+    CView&                 view;
+    std::vector<Listener*> listeners;
+    bool                   isDragging;
+    std::vector<CPoint>    points;
 
 public:
-    MouseEventTranslator(CView& view, Listener& lister) : view(view), lister(lister), hasPoint(false), isDragging(false)
+    MouseEventTranslator(CView& view) : view(view), isDragging(false)
     {}
+
+    void AddListener(Listener& listener)
+    {
+        listeners.push_back(&listener);
+    }
 
     void OnLButtonDown(UINT /* keys */, CPoint point)
     {
@@ -71,9 +74,9 @@ public:
     void OnLButtonUp(UINT /* keys */, CPoint point)
     {
         if (isDragging)
-            lister.OnDragEnd(MK_LBUTTON, DPtoLP(point));
+            OnDragEnd(MK_LBUTTON, point);
         else
-            lister.OnInput(DPtoLP(point));
+            OnInput(point);
         Clear();
     }
 
@@ -86,9 +89,9 @@ public:
     void OnRButtonUp(UINT /* keys */, CPoint point)
     {
         if (isDragging)
-            lister.OnDragEnd(MK_RBUTTON, DPtoLP(point));
+            OnDragEnd(MK_RBUTTON, point);
         else
-            lister.OnInput(DPtoLP(point));
+            OnInput(point);
         Clear();
     }
 
@@ -96,11 +99,11 @@ public:
     {
         if ((keys & MK_LBUTTON) != 0L || (keys & MK_RBUTTON) != 0L) {
             if (isDragging)
-                lister.OnDragging(keys, DPtoLP(point));
+                OnDragging(keys, point);
             else
                 OnDrag(keys, point);
         } else {
-            lister.OnCursor(DPtoLP(point));
+            OnCursor(point);
         }
     }
 
@@ -121,16 +124,46 @@ private:
         ASSERT(points.size() > 0);
         auto distance = Geometry::GetDistance(points[0], point);
         if (distance > dragStartingDistance) {
-            lister.OnDragStart(keys, DPtoLP(points[0]));
+            OnDragStart(keys, points[0]);
             for (size_t index = 1; index < points.size(); index++)
-                lister.OnDragging(keys, DPtoLP(points[index]));
-            lister.OnDragging(keys, DPtoLP(point));
+                OnDragging(keys, points[index]);
+            OnDragging(keys, point);
 
             isDragging = true;
             points.clear();
         } else {
             points.push_back(point);
         }
+    }
+
+    void OnInput(CPoint point)
+    {
+        auto logicalPoint = DPtoLP(point);
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnInput(logicalPoint); });
+    }
+
+    void OnCursor(CPoint point)
+    {
+        auto logicalPoint = DPtoLP(point);
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnCursor(logicalPoint); });
+    }
+
+    void OnDragStart(UINT keys, CPoint point)
+    {
+        auto logicalPoint = DPtoLP(point);
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragStart(keys, logicalPoint); });
+    }
+
+    void OnDragging(UINT keys, CPoint point)
+    {
+        auto logicalPoint = DPtoLP(point);
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragging(keys, logicalPoint); });
+    }
+
+    void OnDragEnd(UINT keys, CPoint point)
+    {
+        auto logicalPoint = DPtoLP(point);
+        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragEnd(keys, logicalPoint); });
     }
 };
 
