@@ -1,19 +1,7 @@
-﻿//#include <iostream>
-#include <algorithm>
-#include <cassert>
-#include "MemoryLeakTest.h"
+﻿#include "MemoryLeakTest.h"
 #include "../Shos.MiniCadSample/undo_redo_vector.h"
 
 using namespace shos;
-
-//class Assert
-//{
-//public:
-//    template <typename T>
-//    static void are_equal(T value1, T value2) { assert(value1 == value2); }
-//    static void is_true  (bool value)         { assert(value); }
-//    static void is_false (bool value)         { assert(!value);}
-//};
 
 class foo
 {
