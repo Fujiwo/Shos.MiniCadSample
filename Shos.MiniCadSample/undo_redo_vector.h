@@ -43,6 +43,7 @@ class undo_redo_collection
         std::size_t                    index;
         TElement                       element;
         const clean_up_function* const clean_up;
+        bool                           hasElement;
 
     public:
         operation_type get_operation_type()
@@ -57,14 +58,14 @@ class undo_redo_collection
 
         virtual ~undo_step()
         {
-            if (clean_up != nullptr)
+            if (hasElement && clean_up != nullptr)
                 (*clean_up)(element);
         }
         
-        static undo_step* add(TCollection& collection, TElement element)
+        static undo_step* add(TCollection& collection, TElement element, const clean_up_function* clean_up = nullptr)
         {
             collection.push_back(element);
-            return new undo_step(collection, operation_type::add, collection.size() - 1);
+            return new undo_step(collection, operation_type::add, collection.size() - 1, clean_up);
         }
 
         static undo_step* remove(TCollection& collection, std::size_t index, const clean_up_function* clean_up = nullptr)
@@ -84,15 +85,15 @@ class undo_redo_collection
         {
             switch (operation) {
                 case operation_type::add:
-                    operation = operation_type::remove;
-                    element = collection[index];
-
+                    operation  = operation_type::remove;
+                    element    = collection[index];
+                    hasElement = true;
                     collection.erase(std::next(collection.begin(), index));
                     break;
                 case operation_type::remove:
                     collection.insert(std::next(collection.begin(), index), element);
-
-                    operation = operation_type::add;
+                    operation  = operation_type::add;
+                    hasElement = false;
                     break;
                 case operation_type::update:
                     std::swap(collection[index], element);
@@ -111,17 +112,17 @@ class undo_redo_collection
         }
 
     protected:
-        undo_step(TCollection& collection, operation_type operation)
-            : collection(collection), operation(operation), index(0), element(), clean_up(nullptr)
+        undo_step(TCollection& collection, operation_type operation, const clean_up_function* clean_up = nullptr)
+            : collection(collection), operation(operation), index(0), element(), hasElement(false), clean_up(clean_up)
         {}
 
     private:
-        undo_step(TCollection& collection, operation_type operation, std::size_t index)
-            : collection(collection), operation(operation), index(index), element(), clean_up(nullptr)
+        undo_step(TCollection& collection, operation_type operation, std::size_t index, const clean_up_function* clean_up = nullptr)
+            : collection(collection), operation(operation), index(index), element(), hasElement(false), clean_up(clean_up)
         {}
 
         undo_step(TCollection& collection, operation_type operation, std::size_t index, TElement element, const clean_up_function* clean_up = nullptr)
-            : collection(collection), operation(operation), index(index), element(element), clean_up(clean_up)
+            : collection(collection), operation(operation), index(index), element(element), hasElement(true), clean_up(clean_up)
         {}
     };
 
@@ -255,7 +256,7 @@ public:
 
     void push_back(TElement element)
     {
-        auto step = undo_step::add(data, element);
+        auto step = undo_step::add(data, element, clean_up);
         push(step);
     }
 
@@ -392,7 +393,23 @@ private:
     }
 };
 
+template <typename TElement, typename TCollection = std::vector<TElement*>>
+class undo_redo_pointer_collection : public undo_redo_collection<TElement*, TCollection>
+{
+public:
+    undo_redo_pointer_collection() : undo_redo_collection<TElement*, TCollection>([](TElement* pointer) { delete pointer; })
+    {}
+
+    virtual ~undo_redo_pointer_collection()
+    {
+        std::for_each(this->begin(), this->end(), [](TElement* pointer) { delete pointer; });
+    }
+};
+
 template <typename TElement>
 using undo_redo_vector = undo_redo_collection<TElement>;
+
+template <typename TElement>
+using undo_redo_pointer_vector = undo_redo_pointer_collection<TElement>;
 
 } // namespace shos
