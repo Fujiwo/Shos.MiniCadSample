@@ -37,7 +37,7 @@ class Model : public Observable<Hint>, public Observer<FigureAttribute>
     static const LONG size                   = 2000L;
     static const LONG minimumLogicalAreaSize = size / 10L;
 
-    shos::undo_redo_vector<Figure*>   figures;
+    shos::undo_redo_pointer_vector<Figure>   figures;
     const Figure* highlightedFigure;
 
     FigureAttribute currentFigureAttribute;
@@ -49,7 +49,7 @@ public:
     static const CSize GetSize()        { return CSize(size, size); }
     static const CRect GetArea()        { return CRect(CPoint(), GetSize()); }
 
-    Model() : figures([](Figure* figure) { delete figure; }), highlightedFigure(nullptr)
+    Model() : highlightedFigure(nullptr)
     {}
 
     virtual ~Model()
@@ -230,8 +230,6 @@ public:
 
     void Reset()
     {
-        for (auto figure : *this)
-            delete figure;
         figures.reset();
         UnSelectAll();
         highlightedFigure = nullptr;
