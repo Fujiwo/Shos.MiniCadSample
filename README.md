@@ -1,4 +1,4 @@
-# Shos.MiniCadSample
+# [C++/MFC] Shos.MiniCadSample
 
 ![image](Documents/images/image01.png)
 
