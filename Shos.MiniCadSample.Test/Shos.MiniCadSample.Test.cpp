@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "CppUnitTest.h"
-#include "../Shos.MiniCadSample/undo_redo_vector.h"
 #include <vector>
 #include <list>
 #include <iterator>
+#include "../Shos.MiniCadSample/undo_redo_vector.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -327,6 +327,75 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual<size_t>(array.size(), 2UL);
             Assert::AreEqual<size_t>(array[0], 100);
             Assert::AreEqual<size_t>(array[1], 200);
+        }
+
+        class foo
+        {
+            int value;
+            
+        public:
+            foo(int value) : value(value) {}
+            operator int() { return value; }
+        };
+        
+        TEST_METHOD(clean_up)
+        {
+            undo_redo_vector<foo*> array;
+            Assert::IsFalse(array.can_redo());
+
+            array.push_back(new foo(300));
+            Assert::IsFalse(array.can_redo());
+
+            array.push_back(new foo(600));
+            array.push_back(new foo(800));
+
+            Assert::AreEqual<size_t>(array.size(), 3UL);
+            Assert::AreEqual<int>(*array[0], 300);
+            Assert::AreEqual<int>(*array[1], 600);
+            Assert::AreEqual<int>(*array[2], 800);
+
+            array.erase(std::next(array.begin(), 1));
+            array.update(array.begin(), new foo(1200));
+            array.erase(array.begin());
+            array.push_back(new foo(1400));
+
+            Assert::AreEqual<size_t>(array.size(), 2UL);
+            Assert::AreEqual<int>(*array[0], 800);
+            Assert::AreEqual<int>(*array[1], 1400);
+
+            array.undo();
+            Assert::AreEqual<size_t>(array.size(), 1UL);
+            Assert::AreEqual<int>(*array[0], 800);
+
+            array.undo();
+            Assert::AreEqual<size_t>(array.size(), 2UL);
+            Assert::AreEqual<int>(*array[0], 1200);
+            Assert::AreEqual<int>(*array[1], 800);
+
+            array.undo();
+            Assert::AreEqual<size_t>(array.size(), 2UL);
+            Assert::AreEqual<int>(*array[0], 300);
+            Assert::AreEqual<int>(*array[1], 800);
+
+            Assert::IsTrue(array.can_redo());
+            Assert::IsTrue(array.redo());
+            Assert::AreEqual<size_t>(array.size(), 2UL);
+            Assert::AreEqual<int>(*array[0], 1200);
+            Assert::AreEqual<int>(*array[1], 800);
+
+            Assert::IsTrue(array.redo());
+            Assert::AreEqual<size_t>(array.size(), 1UL);
+            Assert::AreEqual<int>(*array[0], 800);
+
+            Assert::IsTrue(array.redo());
+            Assert::AreEqual<size_t>(array.size(), 2UL);
+            Assert::AreEqual<int>(*array[0], 800);
+            Assert::AreEqual<int>(*array[1], 1400);
+
+            Assert::IsFalse(array.can_redo());
+            Assert::IsFalse(array.redo());
+
+            std::for_each(array.begin(), array.end(), [](foo* p) { delete p; });
         }
     };
 }

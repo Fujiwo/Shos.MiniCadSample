@@ -49,7 +49,7 @@ public:
     static const CSize GetSize()        { return CSize(size, size); }
     static const CRect GetArea()        { return CRect(CPoint(), GetSize()); }
 
-    Model() : highlightedFigure(nullptr)
+    Model() : figures([](Figure* figure) { delete figure; }), highlightedFigure(nullptr)
     {}
 
     virtual ~Model()
@@ -232,16 +232,9 @@ public:
     {
         for (auto figure : *this)
             delete figure;
-        ResetUndoData();
         figures.reset();
         UnSelectAll();
         highlightedFigure = nullptr;
-    }
-
-    void ResetUndoData()
-    {
-        auto undo_data = figures.undo_data();
-        std::for_each(undo_data.begin(), undo_data.end(), [](Figure* figure) { delete figure; });
     }
 
     void AddDummyData(size_t count)

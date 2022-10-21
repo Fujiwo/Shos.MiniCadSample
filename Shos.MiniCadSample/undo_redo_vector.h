@@ -5,12 +5,27 @@
 #include <list>
 #include <algorithm>
 #include <stdexcept>
+#include <functional>
 
 namespace shos {
 
 template <typename TElement, typename TCollection = std::vector<TElement>>
 class undo_redo_collection
 {
+    class clean_up_function
+    {
+        std::function<void(TElement)> clean_up;
+
+    public:
+        clean_up_function(std::function<void(TElement)> clean_up) : clean_up(clean_up)
+        {}
+
+        void operator()(TElement element) const
+        {
+            clean_up(element);
+        }
+    };
+
     class undo_step
     {
     public:
@@ -23,11 +38,12 @@ class undo_redo_collection
         };
 
     private:
-        TCollection&   collection;
-        operation_type operation;
-        std::size_t    index;
-        TElement       element;
-        
+        TCollection&                   collection;
+        operation_type                 operation;
+        std::size_t                    index;
+        TElement                       element;
+        const clean_up_function* const clean_up;
+
     public:
         operation_type get_operation_type()
         {
@@ -39,23 +55,29 @@ class undo_redo_collection
             return element;
         }
 
+        virtual ~undo_step()
+        {
+            if (clean_up != nullptr)
+                (*clean_up)(element);
+        }
+        
         static undo_step* add(TCollection& collection, TElement element)
         {
             collection.push_back(element);
             return new undo_step(collection, operation_type::add, collection.size() - 1);
         }
 
-        static undo_step* remove(TCollection& collection, std::size_t index)
+        static undo_step* remove(TCollection& collection, std::size_t index, const clean_up_function* clean_up = nullptr)
         {
             auto element = collection[index];
             collection.erase(collection.begin() + index);
-            return new undo_step(collection, operation_type::remove, index, element);
+            return new undo_step(collection, operation_type::remove, index, element, clean_up);
         }
 
-        static undo_step* update(TCollection& collection, std::size_t index, TElement element)
+        static undo_step* update(TCollection& collection, std::size_t index, TElement element, const clean_up_function* clean_up = nullptr)
         {
             std::swap(element, collection[index]);
-            return new undo_step(collection, operation_type::update, index, element);
+            return new undo_step(collection, operation_type::update, index, element, clean_up);
         }
 
         virtual void undo()
@@ -65,10 +87,10 @@ class undo_redo_collection
                     operation = operation_type::remove;
                     element = collection[index];
 
-                    collection.erase(collection.begin() + index);
+                    collection.erase(std::next(collection.begin(), index));
                     break;
                 case operation_type::remove:
-                    collection.insert(collection.begin() + index, element);
+                    collection.insert(std::next(collection.begin(), index), element);
 
                     operation = operation_type::add;
                     break;
@@ -89,14 +111,17 @@ class undo_redo_collection
         }
 
     protected:
-        undo_step(TCollection& collection, operation_type operation) : collection(collection), operation(operation), index(0), element()
+        undo_step(TCollection& collection, operation_type operation)
+            : collection(collection), operation(operation), index(0), element(), clean_up(nullptr)
         {}
 
     private:
-        undo_step(TCollection& collection, operation_type operation, std::size_t index) : collection(collection), operation(operation), index(index), element()
+        undo_step(TCollection& collection, operation_type operation, std::size_t index)
+            : collection(collection), operation(operation), index(index), element(), clean_up(nullptr)
         {}
 
-        undo_step(TCollection& collection, operation_type operation, std::size_t index, TElement element) : collection(collection), operation(operation), index(index), element(element)
+        undo_step(TCollection& collection, operation_type operation, std::size_t index, TElement element, const clean_up_function* clean_up = nullptr)
+            : collection(collection), operation(operation), index(index), element(element), clean_up(clean_up)
         {}
     };
 
@@ -108,7 +133,7 @@ class undo_redo_collection
         using iterator       = typename std::vector<undo_step*>::iterator;
         using const_iterator = typename std::vector<undo_step*>::const_iterator;
 
-        undo_step_group(TCollection& collection) : undo_step(collection, operation_type::group)
+        undo_step_group(TCollection& collection) : undo_step(collection, undo_step::operation_type::group)
         {}
         
         virtual ~undo_step_group()
@@ -162,22 +187,27 @@ class undo_redo_collection
         }
     };
 
-    TCollection             data;
-    
-    size_t                  undo_steps_index;
-    std::vector<undo_step*> undo_steps;
-    undo_step_group*        current_undo_step_group;
+    TCollection                    data;
+    size_t                         undo_steps_index;
+    std::vector<undo_step*>        undo_steps;
+    undo_step_group*               current_undo_step_group;
+    const clean_up_function* const clean_up;
 
 public:
     using iterator       = typename TCollection::iterator;
     using const_iterator = typename TCollection::const_iterator;
 
-    undo_redo_collection() : undo_steps_index(0), current_undo_step_group(nullptr)
+    undo_redo_collection() : undo_steps_index(0), current_undo_step_group(nullptr), clean_up(nullptr)
+    {}
+
+    undo_redo_collection(std::function<void(TElement)> clean_up)
+        : undo_steps_index(0), current_undo_step_group(nullptr), clean_up(new clean_up_function(clean_up))
     {}
 
     virtual ~undo_redo_collection()
     {
         reset_undo_steps();
+        delete clean_up;
     }
 
     const TElement& operator[](size_t index) const
@@ -231,13 +261,13 @@ public:
 
     void erase(iterator iterator)
     {
-        auto step = undo_step::remove(data, std::distance(data.begin(), iterator));
+        auto step = undo_step::remove(data, std::distance(data.begin(), iterator), clean_up);
         push(step);
     }
 
     void update(iterator iterator, TElement element)
     {
-        auto step = undo_step::update(data, std::distance(data.begin(), iterator), element);
+        auto step = undo_step::update(data, std::distance(data.begin(), iterator), element, clean_up);
         push(step);
     }
 
@@ -269,13 +299,6 @@ public:
     bool can_redo() const
     {
         return undo_steps_index != undo_steps.size();
-    }
-
-    std::vector<TElement> undo_data() const
-    {
-        std::vector<TElement> undoes;
-        undo_data(undo_steps, undoes);
-        return undoes;
     }
 
     class transaction
@@ -370,6 +393,6 @@ private:
 };
 
 template <typename TElement>
-using undo_redo_vector = typename undo_redo_collection<TElement>;
+using undo_redo_vector = undo_redo_collection<TElement>;
 
 } // namespace shos
