@@ -116,6 +116,44 @@ public:
         return outer.PtInRect(inner.TopLeft()) && outer.PtInRect(inner.BottomRight());
     }
 
+    static CRect EnlargeTo(const CRect& rect, CSize size)
+    {
+        auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
+        if (d <= 0)
+            return rect;
+
+        CRect newRect = rect;
+        newRect.InflateRect(d, d);
+
+        ASSERT(newRect.Width () >= size.cx);
+        ASSERT(newRect.Height() >= size.cy);
+
+        return newRect;
+    }
+
+    static CRect ShiftInto(const CRect& area, const CRect& maximumArea)
+    {
+        ASSERT(area.Width () > 0);
+        ASSERT(area.Height() > 0);
+
+        auto newArea = area;
+        if (newArea.right > maximumArea.right)
+            newArea -= CSize(newArea.right - maximumArea.right, 0);
+        if (newArea.bottom > maximumArea.bottom)
+            newArea -= CSize(0, newArea.bottom - maximumArea.bottom);
+        if (newArea.left < maximumArea.left)
+            newArea += CSize(maximumArea.left - newArea.left, 0);
+        if (newArea.top < maximumArea.top)
+            newArea += CSize(0, maximumArea.top - newArea.top);
+
+        ASSERT(newArea.Width () == area.Width ());
+        ASSERT(newArea.Height() == area.Height());
+        ASSERT(newArea.left >= maximumArea.left);
+        ASSERT(newArea.top  >= maximumArea.top );
+
+        return newArea;
+    }
+
     static CPoint DPtoLP(CView& view, CPoint point)
     {
         CClientDC dc(&view);

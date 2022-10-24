@@ -16,6 +16,7 @@ class View : public
 #else // SCROLL_VIEW
     DoubleBufferView
 #endif // SCROLL_VIEW 
+    , public MouseEventTranslator::Listener
 {
 #ifdef ZOOMING_VIEW
     Zooming zooming;
@@ -57,6 +58,7 @@ protected:
         mouseEventTranslator.AddListener(testListener);
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
         mouseEventTranslator.AddListener(GetDocument());
+        mouseEventTranslator.AddListener(*this);
     }
 
 #ifndef SCROLL_VIEW
@@ -126,6 +128,33 @@ protected:
         TRACE(_T("View::OnUpdate: clipbox(top: %d, left: %d, width: %d, height: %d)\n"), area.top, area.left, area.Width(), area.Height());
 
         InvalidateRect(area);
+    }
+
+    virtual void OnDragStart(UINT keys, CPoint point) override
+    {
+        if ((keys & MK_RBUTTON) != 0U)
+            zooming.OnDragStart(point);
+    }
+    
+    //virtual void OnDragging(UINT keys, CPoint point) override
+    //{
+    //    if ((keys & MK_RBUTTON) != 0U && zooming.OnDragging(point)) {
+    //        Update();
+    //        Invalidate();
+    //    }
+    //}
+    
+    virtual void OnDraggingAbort() override
+    {
+        zooming.OnDraggingAbort();
+    }
+
+    virtual void OnDragEnd(UINT keys, CPoint point) override
+    {
+        if ((keys & MK_RBUTTON) != 0U && zooming.OnDragEnd(point)) {
+            Update();
+            Invalidate();
+        }
     }
 
     afx_msg void OnEditCopy()

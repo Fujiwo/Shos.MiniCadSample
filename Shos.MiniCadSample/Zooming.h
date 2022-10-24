@@ -10,9 +10,13 @@ class Zooming
     CRect       logicalArea;
     CWnd&       window;
 
+    bool        isDragging;
+    CPoint      dragStartPoint;
+    CRect       dragStartLogicalArea;
+
 public:
     Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
-        : window(window), minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea)
+        : window(window), minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), isDragging(false)
     {
         ASSERT_VALID(&window);
     }
@@ -34,6 +38,7 @@ public:
     {
         if ((keys & MK_CONTROL) == 0)
             return false;
+
         DPtoLP(point);
 
         const auto deltaValue     = delta / (double)WHEEL_DELTA;
@@ -41,28 +46,59 @@ public:
         auto            newLogicalArea = logicalArea;
 
         Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
-        SetLogicalArea(newLogicalArea);
+        return SetLogicalArea(newLogicalArea);
+    }
 
-        return true;
+    void OnDragStart(CPoint point)
+    {
+        dragStartPoint       = point;
+        dragStartLogicalArea = logicalArea;
+        isDragging           = true;
+    }
+
+    //bool OnDragging(CPoint point)
+    //{
+    //    //return ShiftTo(point);
+    //}
+
+    void OnDraggingAbort()
+    {
+        isDragging = false;
+    }
+
+    bool OnDragEnd(CPoint point)
+    {
+        return ShiftTo(point);
+    }
+
+    bool ShiftTo(CPoint point)
+    {
+        auto newLogicalArea = dragStartLogicalArea + (dragStartPoint - point);
+        return isDragging ? ShiftLogicalArea(dragStartLogicalArea + (dragStartPoint - point)) : false;
     }
 
 private:
-    void SetLogicalArea(const CRect& area)
+    bool ShiftLogicalArea(const CRect& area)
     {
-        logicalArea = area;
-        logicalArea.IntersectRect(logicalArea, maximumArea);
-        logicalArea = EnlargeTo(logicalArea, minimumSize);
+        auto oldLogicalArea = logicalArea;
+        logicalArea              = Geometry::ShiftInto(area, maximumArea);
+
+        if (logicalArea != oldLogicalArea)
+            TRACE(_T("Zooming::SetLogicalArea(left: %d, top: %d, width: %d, height: %d)\n"), logicalArea.left, logicalArea.top, logicalArea.Width(), logicalArea.Height());
+
+        return logicalArea != oldLogicalArea;
     }
 
-    static CRect EnlargeTo(const CRect& rect, CSize size)
+    bool SetLogicalArea(const CRect& area)
     {
-        auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
-        if (d <= 0)
-            return rect;
+        auto oldLogicalArea = logicalArea;
 
-        CRect newRect = rect;
-        newRect.InflateRect(d, d);
-        return newRect;
+        auto newArea = Geometry::EnlargeTo(area, minimumSize);
+        logicalArea = Geometry::ShiftInto(newArea, maximumArea);
+        logicalArea.IntersectRect(logicalArea, maximumArea);
+
+        ASSERT(logicalArea.Width() > 0 && logicalArea.Height() > 0);
+        return logicalArea != oldLogicalArea;
     }
 
     CPoint DPtoLP(CPoint point)
