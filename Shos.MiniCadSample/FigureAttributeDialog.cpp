@@ -22,23 +22,28 @@ void FigureAttributeDialog::DoDataExchange(CDataExchange* pDX)
     CDialogEx::DoDataExchange(pDX);
     DDX_Control(pDX, IDC_COLOR_BUTTON, colorButton);
 
-    if (pDX->m_bSaveAndValidate)
-        Save(pDX);
-    else
+    // Changes are read in OnCommand, one item at a time, so that only what the user changed is applied.
+    if (!pDX->m_bSaveAndValidate)
         Load(pDX);
 }
 
-void FigureAttributeDialog::SavePenWidth(CDataExchange* pDX)
+void FigureAttributeDialog::SavePenWidth()
 {
     CString penWidthText;
     GetDlgItemText(IDC_PEN_WIDTH_EDIT, penWidthText);
-    if (penWidthText.IsEmpty())
+    if (penWidthText.IsEmpty()) // Blank: the selected figures have different pen widths; nothing to change.
         return;
 
-    int penWidth;
-    DDX_Text(pDX, IDC_PEN_WIDTH_EDIT, penWidth);
-    if (figureAttribute.SetPenWidth(penWidth))
-        NotifyObservers(figureAttribute);
+    BOOL translated = FALSE;
+    const auto penWidth = static_cast<int>(GetDlgItemInt(IDC_PEN_WIDTH_EDIT, &translated, FALSE));
+    if (!translated) { // Too large.
+        MessageBeep(MB_ICONWARNING);
+        return;
+    }
+
+    auto change = FigureAttribute::Empty();
+    change.SetPenWidth(penWidth);
+    Notify(change);
 }
 
 void FigureAttributeDialog::LoadPenWidth(CDataExchange* pDX)
@@ -55,8 +60,10 @@ int FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM /* lParam */)
 {
     switch (LOWORD(wParam)) {
     case IDC_COLOR_BUTTON    :
+        SaveColor();
+        break;
     case IDC_PEN_WIDTH_BUTTON:
-        UpdateData(true);
+        SavePenWidth();
         break;
     }
     return 0;

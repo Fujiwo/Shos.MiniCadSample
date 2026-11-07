@@ -65,31 +65,40 @@ public:
         return currentFigureAttribute;
     }
 
-    virtual void Update(const FigureAttribute& hint) override
+    // Applies a change from the attribute dialog: only its valid items (see FigureAttribute::ApplyTo).
+    // With a selection, the selected figures are changed (one undo step); otherwise, the attribute for new figures.
+    virtual void Update(const FigureAttribute& change) override
     {
         auto selectedFigures = GetSelectedFigures();
         if (selectedFigures.size() == 0) {
-            currentFigureAttribute = hint;
+            change.ApplyTo(currentFigureAttribute);
             NotifyObservers(Hint(Hint::Type::ViewOnly));
         } else {
-            Update(selectedFigures, hint);
+            Update(selectedFigures, change);
         }
     }
 
-    void Update(std::vector<Figure*> selectedFigures, const FigureAttribute& figureAttribute)
+    void Update(const std::vector<Figure*>& targetFigures, const FigureAttribute& change)
     {
         // Both the old and the new figures are notified, since the new ones can be larger (e.g. a thicker pen)
         // and the views have to redraw the union of their areas.
-        std::vector<Figure*> changedFigures = selectedFigures;
+        std::vector<Figure*> changedFigures;
+        changedFigures.reserve(targetFigures.size() * 2);
         {
             shos::undo_redo_vector<Figure*>::transaction transaction(figures);
-            for (auto figure : selectedFigures) {
-                auto updatedFigure = figure->Clone();
-                updatedFigure->Attribute() = figureAttribute;
-                if (Update(*figure, *updatedFigure))
-                    changedFigures.push_back(updatedFigure);
+            for (auto figure : targetFigures) {
+                std::unique_ptr<Figure> updatedFigure(figure->Clone());
+                if (!change.ApplyTo(updatedFigure->Attribute()))
+                    continue; // Already has the attribute: no undo step.
+                auto newFigure = updatedFigure.release();
+                if (Update(*figure, *newFigure)) {
+                    changedFigures.push_back(figure);
+                    changedFigures.push_back(newFigure);
+                }
             }
         }
+        if (changedFigures.empty())
+            return;
         InvalidateHighlight();
         NotifyObservers(Hint(Hint::Type::Changed, changedFigures));
     }

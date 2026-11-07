@@ -3,9 +3,13 @@
 #include "afxdialogex.h"
 #include "FigureAttribute.h"
 
+// A modeless dialog that shows the attribute of the selected figures (or of new figures)
+// and notifies its observers (Model) of each change the user makes.
+// A notification is a change: only the changed item is valid (see FigureAttribute::ApplyTo),
+// so that items the user did not touch (e.g. different pen widths of the selected figures) are kept.
 class FigureAttributeDialog : public CDialogEx, public Observable<FigureAttribute>
 {
-    FigureAttribute figureAttribute;
+    FigureAttribute figureAttribute; // What the dialog shows. An invalid item is shown blank.
     CMFCColorButton colorButton;
     
 public:
@@ -33,19 +37,21 @@ protected:
     DECLARE_MESSAGE_MAP()
 
 private:
-    void Save(CDataExchange* pDX)
+    // Notifies the observers of change, if it changes what the dialog shows.
+    void Notify(const FigureAttribute& change)
     {
-        SaveColor();
-        SavePenWidth(pDX);
+        if (change.ApplyTo(figureAttribute))
+            NotifyObservers(change);
     }
 
     void SaveColor()
     {
-        if (figureAttribute.SetColor(colorButton.GetColor()))
-            NotifyObservers(figureAttribute);
+        auto change = FigureAttribute::Empty();
+        change.SetColor(colorButton.GetColor());
+        Notify(change);
     }
 
-    void SavePenWidth(CDataExchange* pDX);
+    void SavePenWidth();
 
     void Load(CDataExchange* pDX)
     {
