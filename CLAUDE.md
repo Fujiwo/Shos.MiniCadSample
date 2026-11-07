@@ -6,24 +6,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A sample of a simple CAD app in C++20 / MFC (Windows only). It draws dots, lines, rectangles and ellipses, and supports selection, undo/redo, rubber-band input, zoom/scroll views, serialization and clipboard copy/paste. Visual Studio solution `Shos.MiniCadSample.sln` (toolset v145, configurations Debug/Release × x86/x64).
 
-The repo lives on a Windows filesystem and is opened from WSL. MSBuild/VS are Windows tools, so build from Visual Studio or a Developer PowerShell, not from the Linux shell.
+The repo lives on a Windows filesystem and is opened from WSL. MSBuild and vstest are Windows tools (Visual Studio 18 at `C:\Program Files\Microsoft Visual Studio\18\Enterprise`). WSL can run them directly as `.exe` files (see below). Paths given as arguments must be Windows paths (`wslpath -w`).
 
 ## Build and test
 
-```powershell
-# Build everything
-msbuild Shos.MiniCadSample.sln /p:Configuration=Debug /p:Platform=x64
+```bash
+# From WSL
+MSB="/mnt/c/Program Files/Microsoft Visual Studio/18/Enterprise/MSBuild/Current/Bin/MSBuild.exe"
+VST="/mnt/c/Program Files/Microsoft Visual Studio/18/Enterprise/Common7/IDE/CommonExtensions/Microsoft/TestWindow/vstest.console.exe"
 
-# Run all unit tests (Microsoft CppUnitTestFramework; the test DLL lands under x64\Debug)
-vstest.console.exe x64\Debug\Shos.MiniCadSample.Test.dll
+# Build everything (Platform: x64 or x86; outputs go to x64/<Config>/ or <Config>/)
+"$MSB" Shos.MiniCadSample.sln /p:Configuration=Debug /p:Platform=x64 /m /v:minimal
+# To build a single project, use a solution target, e.g. /t:Shos_MiniCadSample_Test
+# (building the .vcxproj directly does not pick up the solution settings).
 
-# Run a single test
-vstest.console.exe x64\Debug\Shos.MiniCadSample.Test.dll /Tests:undo_redo_vector_test::undo_group
+# Run all unit tests (Microsoft CppUnitTestFramework)
+"$VST" "$(wslpath -w x64/Debug/Shos.MiniCadSample.Test.dll)"
+
+# Run a single test (filter by method name)
+"$VST" "$(wslpath -w x64/Debug/Shos.MiniCadSample.Test.dll)" /Tests:undo_group
+
+# Memory leak check (Debug build only): exit code 0 = no leak, 1 = leaks (dumped to stderr)
+./x64/Debug/Shos.MiniCadSample.MemoryLeakTest.exe
+./x64/Debug/Shos.MiniCadSample.MemoryLeakTest.exe --self-check   # leaks on purpose; must exit 1
 ```
+
+From Windows, use the same commands with `msbuild` / `vstest.console.exe` in a Developer PowerShell.
 
 Projects:
 - `Shos.MiniCadSample`: the MFC application (shared-DLL MFC, precompiled header `pch.h`).
-- `Shos.MiniCadSample.Test`: CppUnitTest DLL that covers only `undo_redo_vector.h` (included by relative path, no MFC).
+- `Shos.MiniCadSample.Test`: CppUnitTest DLL that covers only `undo_redo_vector.h` (included by relative path, no MFC). It replaces the global `operator new` so that a test can make the N-th allocation throw (the `allocation_failure` scope). Exception-safety tests loop over N until the operation succeeds. `tracked` counts live instances to check ownership.
 - `Shos.MiniCadSample.MemoryLeakTest`: console app that runs `undo_redo_vector` scenarios in Debug and reports leaks through the CRT debug heap (`MemoryLeakTest.h` redefines `new`; call `CheckMemoryLeaksStart()` at the top of `main`).
 
 ## Architecture
@@ -42,7 +54,9 @@ Most logic lives in headers. The `.cpp` files mostly hold `IMPLEMENT_DYNCREATE`/
 
 **Undo/redo** (`undo_redo_vector.h`, namespace `shos`): `undo_redo_collection<TElement, TCollection>` records insert/remove/update steps. Its iterators are always `const_iterator`, so elements can only be changed through `push_back`/`insert`/`erase`/`update`/`clear`. The collection is move-only.
 
-A RAII `transaction` groups several steps into one undo unit. Transactions can be nested; only the outermost one creates the step. While a transaction is open, `undo()`/`redo()` return `false` and `reset()` throws.
+A RAII `transaction` groups several steps into one undo unit. Transactions can be nested; only the outermost one creates the step. While a transaction is open, `undo()`/`redo()` return `false`, and `reset()`/`clear_history()` throw. `clear_history()` drops the undo history but keeps the elements (for example, after loading a file).
+
+Element types must be nothrow movable and swappable (enforced by `static_assert`). If `push_back`, `insert` or `update` throws, the element passed in has already been cleaned up, and the collection and its history are left unchanged. With `std::vector`, `undo()`/`redo()` never allocate.
 
 `undo_redo_pointer_collection` owns its pointers and uses `delete` as the clean-up function. That function runs exactly once for each element when the element leaves for good: when its undo history is discarded (redo history truncated), on `reset()`, or when the collection is destroyed. The clean-up function must not throw.
 
