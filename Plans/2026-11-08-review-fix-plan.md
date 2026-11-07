@@ -468,13 +468,31 @@ point = DPtoLP(point);
 - **ムーブ後の `clean_up`（追加の修正）**: ムーブ元の `clean_up` が `nullptr` になっていたため、ムーブ元の `undo_redo_pointer_vector` を再利用すると黙ってリークしていた。ムーブ元にも `clean_up` を残すように変えた（データは空にするので、二重解放にはならない）。
 - **N4（スレッドセーフ版）**: 残す前提でテストを追加した（基本操作、`modify`、8 スレッドからの同時 `push_back`）。
 
-### フェーズ 2（2026-11-08 実施。手動確認は未実施）
+### フェーズ 2（2026-11-08 完了）
 
 | 項目 | 状態 | 内容 |
 |---|---|---|
 | 2-1 [L5] | 完了 | `Observable::RemoveObserver` で `std::remove` の後に `erase` するようにした。登録されていなかった場合は `false` を返す。 |
-| 2-2 [H2] | 完了（手動確認待ち） | `Observable::AddObserver` と `MouseEventTranslator::AddListener` を冪等にした（登録済みなら `false` を返して何もしない）。`View::OnInitialUpdate` では、リスナー登録とオブザーバー登録を初回だけ行い、`Application::Set` による属性の表示は毎回行うようにした。 |
+| 2-2 [H2] | 完了 | `Observable::AddObserver` と `MouseEventTranslator::AddListener` を冪等にした（登録済みなら `false` を返して何もしない）。`View::OnInitialUpdate` では、リスナー登録とオブザーバー登録を初回だけ行い、`Application::Set` による属性の表示は毎回行うようにした。 |
 
 - 単体テストに `observable_test` の 3 件を追加した（登録済みの相手を再登録しても通知は 1 回、削除が実際に効く、削除後に再登録できる）。合計 39 件。
 - 全構成（`Debug` / `Release` × `x64` / `x86`）でビルドが成功し、警告はベースラインから変わっていない。単体テストはすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
-- **未実施**: 完了条件の手動確認（新規作成を 3 回した後、Dot で 1 回クリックすると点が 1 つだけ増える。ダイアログで線幅を 1 回変えた後、Ctrl+Z を 1 回押すと元に戻る）。
+- 完了条件の手動確認（新規作成を 3 回した後、Dot で 1 回クリックすると点が 1 つだけ増える。ダイアログで線幅を 1 回変えた後、Ctrl+Z を 1 回押すと元に戻る）: リポジトリ所有者が実施し、完了した。
+
+### フェーズ 3（2026-11-08 実施。Debug|x64 のテスト実行と手動確認は未実施）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 3-1 [H4] | 完了 | `Model::InvalidateHighlight()` を追加した。`Add`、`AddDummyData`、`RemoveSelectedFigures`、属性の `Update`、`Undo`、`Redo`、ファイル読み込み、`Append`（クリップボード）、`Reset`（`Clear`）で、ハイライトを解除する。 |
+| 3-2 [M6] | 完了 | 使われていない `Model::Remove`、`Model::Change`、`Document::Add` を削除した。 |
+| 3-3 [L3] | 完了 | `RemoveSelectedFigures` で、選択が空なら何もしない（Undo ステップも通知もなく、変更フラグも立たない）。 |
+| 3-4 [L4] | 完了 | 属性変更の通知 `Hint(Changed, ...)` に、旧図形と新図形の両方を含めた。あわせて `Update(Figure&, Figure&)` で、旧図形が見つからなかったときに複製がリークしていた問題を直した（`bool` を返し、複製を削除する）。 |
+| 3-5 [M1] | 完了 | `Model::Serialize`（ファイル専用）の読み込み後に `clear_history()` を呼び、`Hint::Type::All` を通知するようにした。 |
+| 3-6 [L6] | 完了 | `Reset()` を、通知しない `Clear()`（private）と、通知する `Reset()` に分けた。`~Model` は `Clear()` だけを呼ぶ。`Application::Set` と `SetFigureAttributeObserver` は、メイン ウィンドウがない（または破棄済み）なら何もしないようにした（`GetMainFrame()`）。 |
+
+**計画からの変更点（3-5 の前倒し）**: これまで、クリップボードからの貼り付けも `Document::Serialize` → `Model::Serialize` を通っていた。そのため、3-5 だけを行うと、貼り付けのたびに Undo 履歴が消える後退が起きる。これを避けるため、フェーズ 4 の一部を前倒しして、貼り付けを `Model::Append(CArchive&)`（従来どおり、図形ごとに Undo できる形で追加）に分けた。`ClipboardHelper::OnEditPaste` は、読み込み処理をコールバック（`std::function<void(CArchive&)>`）で受け取るようにした（4-5 のインターフェースに合わせた）。貼り付けた図形がすぐに表示されない問題（M2）と、Undo が 1 図形ずつになる問題は、フェーズ 4 で対応する。
+
+**確認結果**:
+- `Debug|x86`、`Release|x64`、`Release|x86` でビルドが成功し、新しい警告は出ていない。単体テストは 39 件すべて成功し、`MemoryLeakTest`（x86 Debug）でリークなし。
+- `Debug|x64` は、Visual Studio がソリューションを開いていたため、中間ファイル（`vc145.pdb` など）がロックされてビルドできなかった。そこでアプリだけを一時フォルダーに出力してビルドし、コンパイルが通ることを確かめた（新しい警告なし）。**`Debug|x64` の単体テストは未実行**（Visual Studio を閉じた後に実行する）。
+- **未実施**: 完了条件の手動確認。
