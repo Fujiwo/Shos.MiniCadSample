@@ -5,6 +5,7 @@
 #endif // _DEBUG
 
 #include <afx.h>
+#include <algorithm>
 #include <vector>
 
 class MouseEventTranslator
@@ -77,9 +78,14 @@ public:
     MouseEventTranslator(CView& view) : view(view), isDragging(false)
     {}
 
-    void AddListener(Listener& listener)
+    // Registers listener. Registering the same listener again has no effect, so it never receives an event twice.
+    // Returns false if it was already registered.
+    bool AddListener(Listener& listener)
     {
+        if (std::find(listeners.begin(), listeners.end(), &listener) != listeners.end())
+            return false;
         listeners.push_back(&listener);
+        return true;
     }
 
     void OnLButtonDown(UINT /* keys */, CPoint point)

@@ -29,6 +29,10 @@ class View : public
     MouseEventTranslator::TestListener testListener;
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
     MouseEventTranslator mouseEventTranslator;
+
+    // OnInitialUpdate runs again on every File > New / Open (the SDI document and view are reused),
+    // so the one-time registrations below are guarded by this flag.
+    bool isInitialized = false;
     
 public:
     View() : mouseEventTranslator(*this)
@@ -53,7 +57,15 @@ protected:
         SetScrollSizes(MM_TEXT, GetDocument().GetSize());
 #endif // SCROLL_VIEW 
 
+        // Shows the attribute of the (new) document in the dialog every time.
         Application::Set(GetDocument().GetCurrentFigureAttribute());
+
+        // The document object is reused by the SDI template, so registering once is enough.
+        // Registering again would deliver every event / attribute change twice.
+        if (isInitialized)
+            return;
+        isInitialized = true;
+
         Application::SetFigureAttributeObserver(GetDocument().GetModel());
 
 #ifdef MOUSE_EVENT_TRANSLATOR_TEST
