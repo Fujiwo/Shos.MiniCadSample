@@ -113,10 +113,10 @@ protected:
     }
 
 public:
-    // Appends the figures on the clipboard (written by Serialize) to the model.
-    void Append(CArchive& ar)
+    // Adds the figures on the clipboard (written by Model::StoreFigures) as one undo step. See Model::Paste.
+    void Paste(CArchive& ar)
     {
-        model.Append(ar);
+        model.Paste(ar);
     }
 
 protected:

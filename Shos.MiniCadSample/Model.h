@@ -1,6 +1,8 @@
 #pragma once
 
 #include <afx.h>
+#include <memory>
+#include <vector>
 #include "Observer.h"
 #include "Figure.h"
 #include "Application.h"
@@ -145,11 +147,17 @@ public:
 
     bool CanRemoveSelectedFigures() const
     {
-        for (auto iterator = figures.cbegin(); iterator != figures.cend(); iterator++) {
-            if ((*iterator)->IsSelected())
-                return true;
-        }
-        return false;
+        return HasSelection();
+    }
+
+    bool HasSelection() const
+    {
+        return std::any_of(figures.cbegin(), figures.cend(), [](const Figure* figure) { return figure->IsSelected(); });
+    }
+
+    bool IsEmpty() const
+    {
+        return figures.empty();
     }
     
     void Select(Figure& figure)
@@ -210,26 +218,75 @@ public:
     }
 
     // Saves / loads a file. Loaded figures are not undoable: the undo history is cleared after loading.
-    // (For the clipboard, use Append.)
+    // Loading is all or nothing: if the file is broken, the exception propagates and no figure is added.
+    // (For the clipboard, use StoreFigures / Paste.)
     virtual void Serialize(CArchive& ar)
     {
         if (ar.IsStoring()) {
-            ar.WriteCount(figures.size());
-            for (auto figure : *this)
-                ar.WriteObject(figure);
+            StoreFigures(ar, false);
         } else {
-            ReadFigures(ar);
+            auto loaded = ReadFigures(ar);
+            CommitFigures(loaded);
             figures.clear_history();
             InvalidateHighlight();
             NotifyObservers(Hint(Hint::Type::All));
         }
     }
 
-    // Appends the figures read from ar (written by Serialize) to the model. Each figure is undoable.
-    void Append(CArchive& ar)
+    // ---- Clipboard ----
+
+    // Writes the figures (only the selected ones if selectedOnly) in the format read by Serialize / Paste.
+    void StoreFigures(CArchive& ar, bool selectedOnly) const
     {
-        ReadFigures(ar);
+        const auto targets = GetFigures(selectedOnly);
+        ar.WriteCount(targets.size());
+        for (auto figure : targets)
+            ar.WriteObject(figure);
+    }
+
+    // Returns the area that the figures (only the selected ones if selectedOnly) occupy, including their
+    // pen width. Returns an empty rectangle if there is none.
+    CRect GetFiguresArea(bool selectedOnly) const
+    {
+        CRect area;
+        FigureHelper::GetArea(GetFigures(selectedOnly), area);
+        return area;
+    }
+
+    // Draws the figures (only the selected ones if selectedOnly) without the selection markers.
+    void DrawFigures(CDC& dc, bool selectedOnly) const
+    {
+        for (auto figure : GetFigures(selectedOnly))
+            figure->Draw(dc, false);
+    }
+
+    // Appends the figures read from ar (written by StoreFigures) as one undo step, and selects them (only them).
+    // All or nothing: if reading or adding fails, the exception (CArchiveException* etc. or std::bad_alloc)
+    // propagates and the model is unchanged.
+    void Paste(CArchive& ar)
+    {
+        auto loaded = ReadFigures(ar);
+        if (loaded.empty())
+            return;
+
+        // Everything that allocates is prepared before the model is changed.
+        std::vector<Figure*> pasted;
+        pasted.reserve(loaded.size());
+        for (const auto& figure : loaded)
+            pasted.push_back(figure.get());
+        const Hint addedHint(Hint::Type::Added, pasted);
+        const Hint viewOnlyHint(Hint::Type::ViewOnly);
+        const auto attribute = GetAttribute(pasted); // The attribute of the selection after pasting.
+
+        CommitFigures(loaded); // All or nothing.
+
+        // The model does not throw from here on.
+        std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
+        std::for_each(pasted.cbegin(), pasted.cend(), [](Figure* figure) { figure->Select(true); });
         InvalidateHighlight();
+        NotifyObservers(addedHint);
+        Application::Set(attribute);
+        NotifyObservers(viewOnlyHint);
     }
 
     // Removes all the figures and the undo history, and updates the attribute dialog and the views.
@@ -263,25 +320,67 @@ private:
         highlightedFigure = nullptr;
     }
 
-    // Reads the figures written by Serialize and appends them to the model.
-    void ReadFigures(CArchive& ar)
+    std::vector<Figure*> GetFigures(bool selectedOnly) const
     {
-        auto count = ar.ReadCount();
-        for (DWORD_PTR counter = 0L; counter < count; counter++) {
-            auto figure = STATIC_DOWNCAST(Figure, ar.ReadObject(NULL));
-            if (figure != nullptr)
-                figures.push_back(figure);
+        return selectedOnly ? GetSelectedFigures() : std::vector<Figure*>(figures.cbegin(), figures.cend());
+    }
+
+    // Reads the figures written by StoreFigures into a temporary list, without changing the model.
+    // Throws CArchiveException* if the data is broken; the figures read so far are deleted.
+    static std::vector<std::unique_ptr<Figure>> ReadFigures(CArchive& ar)
+    {
+        std::vector<std::unique_ptr<Figure>> loaded;
+        const auto count = ar.ReadCount(); // Not trusted for reserve: broken data could claim any number.
+        for (DWORD_PTR counter = 0; counter < count; counter++) {
+            std::unique_ptr<CObject> object(ar.ReadObject(nullptr));
+            if (object == nullptr) // A null pointer was written.
+                continue;
+
+            auto figure = DYNAMIC_DOWNCAST(Figure, object.get());
+            if (figure == nullptr)
+                AfxThrowArchiveException(CArchiveException::badClass);
+            // CArchive returns the same object again for a back reference; owning it twice would delete it twice.
+            if (std::any_of(loaded.cbegin(), loaded.cend(), [&](const std::unique_ptr<Figure>& each) { return each.get() == figure; })) {
+                object.release();
+                AfxThrowArchiveException(CArchiveException::badIndex);
+            }
+
+            loaded.emplace_back(figure);
+            object.release(); // Now owned by loaded.
         }
+        return loaded;
+    }
+
+    // Appends the loaded figures to the model as one undo step, taking over their ownership (loaded is emptied).
+    // All or nothing: on failure the exception propagates, the model is unchanged and the figures are deleted.
+    // Does not notify.
+    void CommitFigures(std::vector<std::unique_ptr<Figure>>& loaded)
+    {
+        std::vector<Figure*> elements;
+        elements.reserve(loaded.size()); // May throw; loaded still owns the figures.
+        for (const auto& figure : loaded)
+            elements.push_back(figure.get());
+
+        // Hand the ownership over to figures.append, which deletes them all if it fails.
+        for (auto& figure : loaded)
+            figure.release();
+        loaded.clear();
+        figures.append(std::move(elements));
     }
 
     FigureAttribute GetSelectedFigureAttribute() const
     {
-        auto selectedFigures = GetSelectedFigures();
+        return GetAttribute(GetSelectedFigures());
+    }
 
-        if (selectedFigures.size() == 1)
-            return selectedFigures[0]->Attribute();
-        if (selectedFigures.size() > 1)
-            return FigureAttribute::GetSum(GetSelectedFigureAttributes(selectedFigures));
+    // The attribute shown in the dialog when targetFigures are selected:
+    // theirs (merged if more than one), or the one for new figures if there is none.
+    FigureAttribute GetAttribute(const std::vector<Figure*>& targetFigures) const
+    {
+        if (targetFigures.size() == 1)
+            return targetFigures[0]->Attribute();
+        if (targetFigures.size() > 1)
+            return FigureAttribute::GetSum(GetSelectedFigureAttributes(targetFigures));
         return currentFigureAttribute;
     }
 

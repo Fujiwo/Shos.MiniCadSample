@@ -55,14 +55,16 @@ public:
         return new Figure(*this);
     }
 
-    void Draw(CDC& dc) const
+    // Draws the figure. The selection markers are drawn too if it is selected and drawSelector is true
+    // (false for output such as the clipboard).
+    void Draw(CDC& dc, bool drawSelector = true) const
     {
         StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
         CPen                pen(PS_SOLID, attribute.GetPenWidth(), attribute.GetColor());
         GdiObjectSelector   penSelector(dc, pen);
 
         DrawShape(dc);
-        if (isSelected)
+        if (isSelected && drawSelector)
             DrawSelecter(dc);
     }
 

@@ -171,19 +171,42 @@ protected:
         }
     }
 
+    // Copy: the selected figures, or all of them if none is selected.
     afx_msg void OnEditCopy()
     {
-        ClipboardHelper::OnEditCopy(GetDocument(), *this, GetDocument().GetSize(), GetBackgroundColor(), [&](CDC& dc) { GetDocument().Draw(dc); });
+        CopyFigures();
     }
 
+    afx_msg void OnUpdateEditCopy(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(GetDocument().GetModel().IsEmpty() ? 0 : 1);
+    }
+
+    // Cut: copies the selected figures, then deletes them (undoable). Disabled without a selection.
     afx_msg void OnEditCut()
     {
-        ClipboardHelper::OnEditCut(GetDocument(), *this, GetDocument().GetSize(), GetBackgroundColor(), [&](CDC& dc) { GetDocument().Draw(dc); });
+        if (!GetDocument().GetModel().HasSelection())
+            return;
+        if (CopyFigures())
+            GetDocument().RemoveSelectedFigures();
     }
 
+    afx_msg void OnUpdateEditCut(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(GetDocument().GetModel().HasSelection() ? 1 : 0);
+    }
+
+    // Paste: adds the figures on the clipboard as one undo step and selects them.
+    // The model notifies the views, which redraw and set the modified flag.
     afx_msg void OnEditPaste()
     {
-        ClipboardHelper::OnEditPaste(GetDocument(), *this, [&](CArchive& ar) { GetDocument().Append(ar); });
+        if (!ClipboardHelper::Paste(*this, [&](CArchive& ar) { GetDocument().Paste(ar); }))
+            ::MessageBeep(MB_ICONWARNING);
+    }
+
+    afx_msg void OnUpdateEditPaste(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(ClipboardHelper::CanPaste() ? 1 : 0);
     }
 
     afx_msg void OnLButtonDown(UINT keys, CPoint point)
@@ -230,11 +253,6 @@ protected:
     }
 #endif // ZOOMING_VIEW
 
-    afx_msg void OnDestroyClipboard()
-    {
-        ClipboardHelper::OnDestroyClipboard();
-    }
-
     afx_msg void OnKeyDown(UINT nChar, UINT /* nRepCnt */, UINT /* nFlags */)
     {
         if (nChar == VK_DELETE)
@@ -250,6 +268,23 @@ private:
         trackmouseevent.hwndTrack   = GetSafeHwnd();
         trackmouseevent.dwHoverTime = HOVER_DEFAULT;
         ::TrackMouseEvent(&trackmouseevent);
+    }
+
+    // Copies the selected figures, or all of them (with the drawing area) if none is selected.
+    bool CopyFigures()
+    {
+        const auto& model        = GetDocument().GetModel();
+        const bool  selectedOnly = model.HasSelection();
+        // The selected figures are output in their own bounding rectangle; all the figures in the whole document area.
+        const auto  area         = selectedOnly ? model.GetFiguresArea(true) : Document::GetArea();
+
+        return ClipboardHelper::Copy(*this, area, GetBackgroundColor(),
+            [&](CArchive& ar) { model.StoreFigures(ar, selectedOnly); },
+            [&](CDC& dc) {
+                if (!selectedOnly)
+                    GetDocument().DrawArea(dc);
+                model.DrawFigures(dc, selectedOnly);
+            });
     }
 
     static COLORREF GetBackgroundColor()
