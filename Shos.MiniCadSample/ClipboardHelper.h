@@ -30,11 +30,12 @@ public:
         return false;
     }
 
-    static bool OnEditPaste(CDocument& document, CWnd& view)
+    // Reads the custom-format data on the clipboard with load. Returns false if there is none.
+    static bool OnEditPaste(CDocument& document, CWnd& view, std::function<void(CArchive&)> load)
     {
         if (!view.OpenClipboard())
             return false;
-        if (AddDataFromClipboard(document)) {
+        if (AddDataFromClipboard(load)) {
             document.SetModifiedFlag();
             view.Invalidate();
         }
@@ -77,7 +78,7 @@ private:
         ::SetClipboardData(CF_PRIVATEFIRST, globalMemoryHandle);
     }
 
-    static bool AddDataFromClipboard(CDocument& document)
+    static bool AddDataFromClipboard(std::function<void(CArchive&)> load)
     {
         const HANDLE clipboardData = ::GetClipboardData(CF_PRIVATEFIRST);
         if (clipboardData == nullptr)
@@ -87,10 +88,9 @@ private:
         sharedFile.SetHandle(clipboardData);
         {
             CArchive ar(&sharedFile, CArchive::load);
-            document.Serialize(ar);
+            load(ar);
         }
         sharedFile.Detach();
-        document.SetModifiedFlag();
         return true;
     }
 

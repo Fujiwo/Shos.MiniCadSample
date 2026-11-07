@@ -40,12 +40,6 @@ public:
         return model.end();
     }
 
-    void Add(Figure* figure)
-    {
-        model.Add(figure);
-        SetModifiedFlag();
-    }
-
     void Draw(CDC& dc) const
     {
         DrawArea(dc);
@@ -117,6 +111,15 @@ protected:
     {
         model.Serialize(ar);
     }
+
+public:
+    // Appends the figures on the clipboard (written by Serialize) to the model.
+    void Append(CArchive& ar)
+    {
+        model.Append(ar);
+    }
+
+protected:
 
     virtual void DeleteContents()
     {

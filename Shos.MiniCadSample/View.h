@@ -183,7 +183,7 @@ protected:
 
     afx_msg void OnEditPaste()
     {
-        ClipboardHelper::OnEditPaste(GetDocument(), *this);
+        ClipboardHelper::OnEditPaste(GetDocument(), *this, [&](CArchive& ar) { GetDocument().Append(ar); });
     }
 
     afx_msg void OnLButtonDown(UINT keys, CPoint point)

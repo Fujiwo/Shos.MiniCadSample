@@ -52,9 +52,10 @@ public:
     Model() : highlightedFigure(nullptr)
     {}
 
+    // Does not notify anyone: the observers (the document, the main window) may already be being destroyed.
     virtual ~Model()
     {
-        Reset();
+        Clear();
     }
 
     FigureAttribute& GetCurrentFigureAttribute()
@@ -75,20 +76,33 @@ public:
 
     void Update(std::vector<Figure*> selectedFigures, const FigureAttribute& figureAttribute)
     {
-        shos::undo_redo_vector<Figure*>::transaction transaction(figures);
-        for (auto figure : selectedFigures) {
-            auto updatedFigure = figure->Clone();
-            updatedFigure->Attribute() = figureAttribute;
-            Update(*figure, *updatedFigure);
+        // Both the old and the new figures are notified, since the new ones can be larger (e.g. a thicker pen)
+        // and the views have to redraw the union of their areas.
+        std::vector<Figure*> changedFigures = selectedFigures;
+        {
+            shos::undo_redo_vector<Figure*>::transaction transaction(figures);
+            for (auto figure : selectedFigures) {
+                auto updatedFigure = figure->Clone();
+                updatedFigure->Attribute() = figureAttribute;
+                if (Update(*figure, *updatedFigure))
+                    changedFigures.push_back(updatedFigure);
+            }
         }
-        NotifyObservers(Hint(Hint::Type::Changed, selectedFigures));
+        InvalidateHighlight();
+        NotifyObservers(Hint(Hint::Type::Changed, changedFigures));
     }
 
-    void Update(Figure& oldFigure, Figure& newFigure)
+    // Replaces oldFigure with newFigure (undoable). newFigure belongs to the model from then on.
+    // Returns false (and deletes newFigure) if oldFigure is not in the model.
+    bool Update(Figure& oldFigure, Figure& newFigure)
     {
         auto iterator = std::find(figures.begin(), figures.end(), &oldFigure);
-        if (iterator != figures.cend())
-            figures.update(iterator, &newFigure);
+        if (iterator == figures.cend()) {
+            delete &newFigure;
+            return false;
+        }
+        figures.update(iterator, &newFigure);
+        return true;
     }
 
     iterator begin() const
@@ -106,32 +120,25 @@ public:
         ASSERT_VALID(figure);
         figure->Attribute() = currentFigureAttribute;
         figures.push_back(figure);
+        InvalidateHighlight(); // The redo history may have been discarded, deleting the highlighted figure.
         NotifyObservers(Hint(Hint::Type::Added, figure));
-    }
-
-    void Remove(Figure* figure)
-    {
-        ASSERT_VALID(figure);
-
-        auto iterator = std::find(figures.begin(), figures.end(), figure);
-        figures.erase(iterator);
-        if ((*iterator)->IsSelected())
-            SetSelectedFigureAttribute();
-
-        NotifyObservers(Hint(Hint::Type::Removed, figure));
     }
 
     void RemoveSelectedFigures()
     {
-        shos::undo_redo_vector<Figure*>::transaction transaction(figures);
-        
         auto selectedFigures = GetSelectedFigures();
+        if (selectedFigures.empty()) // Nothing to do: no undo step, no notification, no modified flag.
+            return;
 
-        std::for_each(selectedFigures.cbegin(), selectedFigures.cend(),
-            [&](Figure* figure) {
-                auto iterator = std::find(figures.begin(), figures.end(), figure);
-                figures.erase(iterator);
-            });
+        {
+            shos::undo_redo_vector<Figure*>::transaction transaction(figures);
+            std::for_each(selectedFigures.cbegin(), selectedFigures.cend(),
+                [&](Figure* figure) {
+                    auto iterator = std::find(figures.begin(), figures.end(), figure);
+                    figures.erase(iterator);
+                });
+        }
+        InvalidateHighlight();
         SetSelectedFigureAttribute();
         NotifyObservers(Hint(Hint::Type::Removed, selectedFigures));
     }
@@ -145,18 +152,6 @@ public:
         return false;
     }
     
-    bool Change(Figure* oldFigure, Figure* newFigure)
-    {
-        auto iterator = std::find(figures.begin(), figures.end(), oldFigure);
-        if (iterator == figures.end())
-            return false;
-
-        figures.update(iterator, newFigure);
-        std::vector<Figure*> changedFigures = { oldFigure, newFigure };
-        NotifyObservers(Hint(Hint::Type::Changed, changedFigures));
-        return true;
-    }
-
     void Select(Figure& figure)
     {
         figure.Select(!figure.IsSelected());
@@ -180,8 +175,10 @@ public:
 
     void Undo()
     {
-        if (figures.undo())
+        if (figures.undo()) {
+            InvalidateHighlight();
             NotifyObservers(Hint(Hint::Type::All));
+        }
     }
 
     bool CanUndo() const
@@ -191,8 +188,10 @@ public:
 
     void Redo()
     {
-        if (figures.redo())
+        if (figures.redo()) {
+            InvalidateHighlight();
             NotifyObservers(Hint(Hint::Type::All));
+        }
     }
 
     bool CanRedo() const
@@ -210,39 +209,71 @@ public:
         return highlightedFigure;
     }
 
+    // Saves / loads a file. Loaded figures are not undoable: the undo history is cleared after loading.
+    // (For the clipboard, use Append.)
     virtual void Serialize(CArchive& ar)
     {
         if (ar.IsStoring()) {
             ar.WriteCount(figures.size());
             for (auto figure : *this)
                 ar.WriteObject(figure);
-        }
-        else
-        {
-            auto count = ar.ReadCount();
-            for (DWORD_PTR counter = 0L; counter < count; counter++) {
-                auto figure = STATIC_DOWNCAST(Figure, ar.ReadObject(NULL));
-                if (figure != nullptr)
-                    figures.push_back(figure);
-            }
+        } else {
+            ReadFigures(ar);
+            figures.clear_history();
+            InvalidateHighlight();
+            NotifyObservers(Hint(Hint::Type::All));
         }
     }
 
+    // Appends the figures read from ar (written by Serialize) to the model. Each figure is undoable.
+    void Append(CArchive& ar)
+    {
+        ReadFigures(ar);
+        InvalidateHighlight();
+    }
+
+    // Removes all the figures and the undo history, and updates the attribute dialog and the views.
     void Reset()
     {
-        figures.reset();
-        UnSelectAll();
-        highlightedFigure = nullptr;
+        Clear();
+        SetSelectedFigureAttribute();
     }
 
     void AddDummyData(size_t count)
     {
         auto newFigures = FigureHelper::GetRandomFigures(count, GetArea());
         std::for_each(newFigures.cbegin(), newFigures.cend(), [&](Figure* figure) { figures.push_back(figure); });
+        InvalidateHighlight();
         NotifyObservers(Hint(Hint::Type::Added, newFigures));
     }
 
 private:
+    // Removes all the figures and the undo history without notifying anyone.
+    void Clear()
+    {
+        figures.reset();
+        highlightedFigure = nullptr;
+    }
+
+    // The highlighted figure may have left the model (undo, removal, replacement) or even been deleted
+    // (when the redo history is discarded), so it is forgotten whenever the figures change.
+    // SelectCommand sets it again on the next mouse move.
+    void InvalidateHighlight()
+    {
+        highlightedFigure = nullptr;
+    }
+
+    // Reads the figures written by Serialize and appends them to the model.
+    void ReadFigures(CArchive& ar)
+    {
+        auto count = ar.ReadCount();
+        for (DWORD_PTR counter = 0L; counter < count; counter++) {
+            auto figure = STATIC_DOWNCAST(Figure, ar.ReadObject(NULL));
+            if (figure != nullptr)
+                figures.push_back(figure);
+        }
+    }
+
     FigureAttribute GetSelectedFigureAttribute() const
     {
         auto selectedFigures = GetSelectedFigures();
