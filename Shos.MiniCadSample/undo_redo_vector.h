@@ -258,6 +258,28 @@ private:
             detail::reserve_at_least(steps, steps.size() + 1);
         }
 
+        // Makes sure that the next count push_backs do not allocate.
+        void reserve(std::size_t count)
+        {
+            steps.reserve(steps.size() + count);
+        }
+
+        // Applies all the steps, or none of them: if one fails, the ones already applied are undone
+        // before the exception propagates. This relies on undoing an applied step never throwing,
+        // which holds for the insertions this is used for (undoing an insertion is a removal).
+        void redo_all_or_nothing(TCollection& collection)
+        {
+            std::size_t applied = 0;
+            try {
+                for (; applied < steps.size(); applied++)
+                    steps[applied]->redo(collection);
+            } catch (...) {
+                while (applied > 0)
+                    steps[--applied]->undo(collection);
+                throw;
+            }
+        }
+
         void push_back(std::unique_ptr<undo_step> step)
         {
             steps.push_back(std::move(step));
@@ -456,6 +478,48 @@ public:
     {
         const auto index = index_of(position);
         execute_taking(element, [&] { return update_step::create(index, element); });
+    }
+
+    // Appends all the elements to the end as one undo step (or as part of the transaction in progress).
+    // All or nothing: if this throws, the collection and its undo history are unchanged, and every element
+    // has been passed to clean_up (as with push_back, the elements belong to the collection from the call on).
+    void append(std::vector<TElement> elements)
+    {
+        if (elements.empty())
+            return;
+
+        std::unique_ptr<group_step> group;
+        std::size_t                 taken = 0; // Number of elements already moved into the steps of group.
+        try {
+            group = std::make_unique<group_step>();
+            group->reserve(elements.size());
+            // insert moves the element into the step only after allocating the step, so on failure
+            // elements[taken] and the ones after it are still in elements.
+            for (; taken < elements.size(); taken++)
+                group->push_back(insert_or_remove_step::insert(data.size() + taken, elements[taken]));
+
+            if (in_transaction())
+                transaction_group->reserve_one_more();
+            else
+                detail::reserve_at_least(undo_steps, undo_steps_index + 1);
+
+            group->redo_all_or_nothing(data);
+        } catch (...) {
+            // Nothing has been applied: the moved elements are all held by the steps of group.
+            if (clean_up) {
+                if (group)
+                    group->clean_up_elements(clean_up);
+                for (auto index = taken; index < elements.size(); index++)
+                    clean_up(elements[index]);
+            }
+            throw;
+        }
+
+        // Nothing below can throw.
+        if (in_transaction())
+            transaction_group->push_back(std::move(group));
+        else
+            push_to_undo_steps(std::move(group));
     }
 
     // Removes all the elements as one undo step.
@@ -789,6 +853,13 @@ public:
             return false;
         collection.insert(std::next(collection.begin(), index), std::move(element));
         return true;
+    }
+
+    // Appends all the elements as one undo step. All or nothing (see undo_redo_collection::append).
+    void append(std::vector<TElement> elements)
+    {
+        std::scoped_lock lock(mutex);
+        collection.append(std::move(elements));
     }
 
     // Removes the element at index. Returns false (without changing anything) if index >= size().
