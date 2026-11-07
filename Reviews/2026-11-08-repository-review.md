@@ -4,6 +4,7 @@
 - 対象コミット: `ae5c882`（main）
 - 対象範囲: `Shos.MiniCadSample`（アプリ本体）、`Shos.MiniCadSample.Test`、`Shos.MiniCadSample.MemoryLeakTest`、プロジェクト設定、README
 - 追記: 作業ツリー上で更新された `undo_redo_vector.h` を、8 章で再レビューしました。M7 と M8 は解消済みです。
+- 追記: 作業ツリー上で更新された `DoubleBuffer.h` / `DoubleBuffer.cpp` / `GdiObjectSelector.h` / `View.h` を、9 章で再レビューしました。
 - 方法: ソースを通読して静的に検討しました。**ビルドも実行もしていません**（WSL 上で作業したため）。「再現手順」は MFC と Win32 の既知の動作から推定したものです。「要実機確認」と書いた項目は、実際に動かして確かめてください。
 
 ---
@@ -329,15 +330,15 @@ if ((*iterator)->IsSelected())   // erase 後のイテレータを参照して�
 
 - **図形の所有と識別**: 図形をポインタで識別しているため、`Hint`、ハイライト、選択などで寿命の問題が起きやすくなっています（H4、L4）。サンプルの範囲を超えるかもしれませんが、図形に ID を持たせると、この種の問題をまとめて防げます。
 - **選択状態が図形の中にある**: `Figure::isSelected` が `Clone()` でコピーされ、Undo ステップにも残ります。Undo すると選択状態まで巻き戻るのは意図どおりかもしれませんが、選択は View 側の状態として Model の外に置く設計も考えられます。
-- **描画キャッシュの粒度**: `View::OnUpdate` は差分を `InvalidateRect` していますが、その直前の `Update()` で Layer1 のキャッシュ全体を作り直しています。そのため差分再描画の効果は BitBlt の範囲に限られます。また `OnMouseMove` が毎回 `Invalidate()` で全体を再描画しています。サンプルの規模では問題ありませんが、差分描画を見せる教材としては説明があるとよいです。
-- **使われていないコード**: `DoubleBuffer::CashDevice`、`undo_data`、`Model::Remove` / `Change`、`Document::Add`、`View::OnDragging`（コメントアウト）、`Zooming::OnDragging`（コメントアウト）、`Zooming::ShiftTo` 内の未使用変数 `newLogicalArea`。
+- **描画キャッシュの粒度**: `View::OnUpdate` は差分を `InvalidateRect` していますが、その直前の `Update()` で Layer1 のキャッシュ全体を作り直しています。そのため差分再描画の効果は BitBlt の範囲に限られます。また `OnMouseMove` が毎回 `Invalidate()` で全体を再描画しています。サンプルの規模では問題ありませんが、差分描画を見せる教材としては説明があるとよいです。（9 章の更新で、キャッシュに差分だけを描き足す `CacheDevice` が使えるようになりました。ただし View はまだ使っていません）
+- **使われていないコード**: ~~`DoubleBuffer::CashDevice`~~（9 章で `CacheDevice` として整備され、公開 API になりました）、`undo_data`、`Model::Remove` / `Change`、`Document::Add`、`View::OnDragging`（コメントアウト）、`Zooming::OnDragging`（コメントアウト）、`Zooming::ShiftTo` 内の未使用変数 `newLogicalArea`。
 - **乱数**: `FigureHelper::RandomValue` は `mt() % n` です。`std::uniform_int_distribution` を使うほうが偏りがなく、意図も明確です。`GetRandomFigure` の `default` 分岐は `nullptr` を参照外しします（到達しない分岐ではあります）。
 - **ヒットテスト**: `Geometry::InRect` は `PtInRect` を使っています。右端と下端を含まないため、範囲選択の枠にぴったり接している図形は選択されません。
 - **コーディングの一貫性**:
   - `override` が付いているメソッドと付いていないメソッドが混在しています（`GetName`、`GetPoints`、`GetMaximumCount` など）。
   - `DotFigure::radius` は非 static の `const` メンバです（`static constexpr` が適当）。
   - `Zooming` のメンバ初期化子の順序が宣言順と違います（C5038 警告の対象）。
-- **綴り**: `Hilight` → `Highlight`、`DrawSelecter` → `DrawSelector`、`Cash` → `Cache`、`erace` → `erase`（テスト名）、`maxmum` → `maximum`、`searchinRect` → `searchingRect`。
+- **綴り**: `Hilight` → `Highlight`、`DrawSelecter` → `DrawSelector`、~~`Cash` → `Cache`~~（9 章で修正済み）、`erace` → `erase`（テスト名）、`maxmum` → `maximum`、`searchinRect` → `searchingRect`。
 - **README**: 機能一覧のインデントにタブとスペースが混在しており、GitHub で入れ子が崩れて表示されます。ビルド方法とテストの実行方法の記述もありません（`CLAUDE.md` には記載済み）。
 
 ---
@@ -415,3 +416,60 @@ static void reserve_for_one_more(TVector& vector, std::size_t required)
 ```
 
 **N2 の修正案**: `execute` で `redo` を `try` で囲む。失敗したら `clean_up` があれば `step->clean_up_elements(clean_up)` を呼んでから、例外を投げ直す。
+
+---
+
+## 9. 追記: ダブルバッファ関連の更新の反映（2026-11-08）
+
+作業ツリー上で、次の 4 ファイルが更新されました（未コミット）。新しい版を通読し、利用側との整合を確認しました。こちらもビルドはしていません。
+
+- `DoubleBuffer.h`（全面改訂）
+- `DoubleBuffer.cpp`
+- `GdiObjectSelector.h`
+- `View.h`
+
+### 9.1 主な変更点
+
+- **Layer 2 も画面外で合成するようにした**: 以前は Layer 1（キャッシュ）を画面に転送してから、Layer 2（ラバーバンドやカーソル表示）を画面に直接描いていました。今回の版では、再描画範囲の大きさの作業用ビットマップにキャッシュをコピーし、そこに Layer 2 を描いてから、画面へ一度だけ転送します。Layer 2 のちらつきがなくなります。
+- **スクロールの扱いを変えた**: `OnHScroll` / `OnVScroll` / `OnMouseWheel` の個別処理をやめ、`CScrollView::OnScrollBy` のオーバーライドにまとめました。キャッシュを作ったときのスクロール位置（`cacheOrigin`）を記録し、位置が変わっていたら作り直します。
+- **`CashDevice` を `CacheDevice` に改名した**: キャッシュに差分だけを描き足すための API として整備しました。`OnPrepareDC` を適用するので論理座標で描け、コピーは禁止です。旧名は `[[deprecated]]` の別名として残っています。
+- **その他**:
+  - 名前空間 `Shos::MFCDoubleBuffer` を導入した。
+  - テンプレートを C++20 のコンセプト `std::derived_from<CView>` で制約した。
+  - 描画の入口になる仮想関数を `OnPaint(CDC&)` から `OnPaintBuffered` に改名した（`afx_msg OnPaint()` と同じ名前で紛らわしかったため）。
+  - `SetBackgroundColor` でキャッシュを無効にするようにした。
+  - 最小化時（クライアント領域が空）は描画しないようにした。
+  - ビットマップの作成に失敗したときの戻り値を確認するようにした。
+- **`GdiObjectSelectorBase` のコピーを禁止した**: コピーすると選択が二重に元へ戻されるのを防ぎます。
+- **`View.h`**: `using namespace Shos::MFCDoubleBuffer;` を追加しました。
+
+### 9.2 既存の指摘・コメントへの影響
+
+| 項目 | 状態 |
+|---|---|
+| 5 章「使われていないコード」の `CashDevice` | **方針変更**: 削除ではなく、`CacheDevice` という公開 API として整備された。アプリからはまだ使われていない。 |
+| 5 章「綴り」の `Cash` → `Cache` | **解消** |
+| 5 章「描画キャッシュの粒度」 | **一部前進**: 差分を描き足す手段（`CacheDevice`）はできた。ただし `View::OnUpdate` は今も毎回 `Update()` でキャッシュ全体を作り直している。 |
+| H1〜H4、M1〜M6、L1〜L7 | 影響なし（いずれも残っている）。 |
+
+利用側との互換性:
+- `View.h` / `View.cpp` は、追加された `using namespace` によって `DoubleBufferView` / `DoubleBufferScrollView` を修飾なしで参照できます。`IMPLEMENT_DYNCREATE(View, DoubleBufferView)` と `BEGIN_MESSAGE_MAP(View, DoubleBufferView)` も、`View.h` を読み込んだ後なので解決できます。
+- `View` が使う `Update()`、`SetBackgroundColor()`、`OnDrawLayer1/2`、`OnUpdate`、`OnPrepareDC`、`OnMouseWheel` は、いずれも名前と可視性に互換性があります。改名された `OnPaint(CDC&)` を使っている箇所はありません。
+- Layer 2 の描画先が、画面の DC から作業用ビットマップの DC に変わりました。原点は `OffsetViewportOrg(-clipBox.left, -clipBox.top)` で補正されています。Layer 2 の中で座標変換を使う箇所（`Cursor::DrawCursor` の `LPtoDP` / `DPtoLP`、`Geometry::DPtoLP(dc, size)`）や、XOR 描画（`SelectCommand::DrawArea` の `R2_XORPEN`）も、同じ DC 上で完結するので問題ありません。
+
+### 9.3 新しい版に対する指摘
+
+| ID | 重大度 | 場所 | 概要 |
+|---|---|---|---|
+| D1 | 低 | `View.h:13` | `using namespace Shos::MFCDoubleBuffer;` がヘッダーの**グローバル スコープ**にあり、`View.h` を読み込むすべての翻訳単位（`Application.cpp` など）に名前空間が漏れる。`View.cpp` で `using` するか、`View.h` では `Shos::MFCDoubleBuffer::DoubleBufferView` のように修飾するほうがよい。 |
+| D2 | 低 | `DoubleBuffer.h:144-151` | WM_PAINT のたびに、再描画範囲の大きさの作業用ビットマップを作って破棄している。`View::OnMouseMove` が毎回 `Invalidate()` で全体を再描画するため、マウスが動くたびにクライアント領域全体の大きさのビットマップを作り直すことになる。作業用ビットマップもメンバーに持ち、大きさが変わったときだけ作り直すと負荷が下がる。 |
+| D3 | 低 | `DoubleBuffer.h:137-150` | キャッシュや作業用ビットマップを作れなかったときは何も描かずに戻る。`OnEraseBkgnd` が背景を消さないので、再描画範囲に以前の画面が残ったままになる。最低限、背景色で塗りつぶして Layer 1 と Layer 2 を画面に直接描くといった代替処理があるとよい。 |
+| D4 | 低 | `DoubleBuffer.h:74-83, 97-98` | `CacheDevice` を最初の WM_PAINT より前（キャッシュのビットマップがまだない状態）に使うと、空の `CBitmap` を選択しようとして選択が失敗し、描いた内容は黙って捨てられる。コメントには「キャッシュが無効なとき」とあるが、この場合も含まれることを明記するか、`ASSERT(cache.GetSafeHandle() != nullptr)` を置くとよい。また旧名の別名 `CashDevice` は利用箇所がないので削除できる。 |
+| D5 | 低 | `DoubleBuffer.h:1, 215`, `DoubleBuffer.cpp:1-2` | コメントのファイル名が `MFCDoubleBuffer.h` / `MFCDoubleBuffer.cpp` になっているが、実際のファイル名は `DoubleBuffer.h` / `DoubleBuffer.cpp`。 |
+| D6 | 情報 | リポジトリ全体 | 名前空間の命名が `shos`（`undo_redo_vector.h`、小文字）と `Shos::MFCDoubleBuffer`（今回、パスカルケース）で揃っていない。アプリ本体のクラスはグローバル名前空間にある。方針を決めて統一するとよい。 |
+
+### 9.4 良い点
+
+- Layer 2 を画面外で合成するようにしたことで、ラバーバンドやカーソル表示のちらつきが根本的になくなります。
+- スクロールの処理を `OnScrollBy` 1 か所に集めたので、スクロール バー、ホイール、キーボードなど、どの経路でスクロールしてもキャッシュの扱いが一貫します。
+- ヘッダー冒頭に、仕組み、使い方、制限事項が日本語でまとまっており、教材としての価値が上がっています。

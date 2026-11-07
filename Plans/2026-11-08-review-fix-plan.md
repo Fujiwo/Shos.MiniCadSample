@@ -4,6 +4,7 @@
 - 元にしたレビュー: [`Reviews/2026-11-08-repository-review.md`](../Reviews/2026-11-08-repository-review.md)
 - 対象コミット: `ae5c882`（main）
 - 更新: 2026-11-08 — 作業ツリー上の `undo_redo_vector.h` の全面改訂を反映しました。M7 と M8 は解消済みなので、フェーズ 1 を縮小し、新しい指摘 N1〜N4 を加えました（レビュー 8 章）。
+- 更新: 2026-11-08 — `DoubleBuffer.h/.cpp`、`GdiObjectSelector.h`、`View.h` の更新を反映しました。フェーズ 7 を見直し、新しい指摘 D1〜D6 を加えました（レビュー 9 章）。
 
 ---
 
@@ -32,7 +33,7 @@
 | 4 | クリップボード | H1, M2, M4 | 3 |
 | 5 | 図形属性の受け渡し | H3, T3（一部） | 0（3 の後が望ましい） |
 | 6 | 入力・ズーム・ダイアログ | M3, M5, L1, L2, L7 | 0 |
-| 7 | 保守性の改善（任意） | 5 章の項目 | 1〜6 |
+| 7 | 保守性の改善（任意） | 5 章の項目、D1〜D6 | 1〜6 |
 
 フェーズ 2、5、6 は互いに独立しているので、並行して進めても構いません。
 
@@ -60,6 +61,14 @@
 **対象ファイル**: `Shos.MiniCadSample/undo_redo_vector.h`、`Shos.MiniCadSample.Test/Shos.MiniCadSample.Test.cpp`、`Shos.MiniCadSample.MemoryLeakTest/Shos.MiniCadSample.MemoryLeakTest.cpp`
 
 > **現状**: `undo_redo_vector.h` は作業ツリー上で全面的に改訂されており（未コミット）、M7（`reset()` の null 参照）と M8（コピー禁止、入れ子トランザクション、`noexcept` のデストラクタ、`undo_data` の削除）は解消済みです。このフェーズでは、改訂版をビルドとテストで確かめてコミットし、残っている課題を片付けます。
+
+#### 1-0. ダブルバッファ関連の更新の確認（レビュー 9 章）
+`DoubleBuffer.h/.cpp`、`GdiObjectSelector.h`、`View.h` の更新も、ここで同時に確かめます。
+- 全構成でビルドし、`View.cpp` の `IMPLEMENT_DYNCREATE` / `BEGIN_MESSAGE_MAP` が名前空間 `Shos::MFCDoubleBuffer` の基底クラスを正しく解決すること。
+- 手動で次を確かめます。
+  - 範囲選択の枠、図形入力中のプレビュー、カーソル表示がちらつかずに描かれる。
+  - ウィンドウのサイズ変更、最小化からの復元、Ctrl+ホイールのズーム、右ドラッグのパンで、表示が崩れない。
+  - `View.h` の `SCROLL_VIEW` を有効にしてビルドし、スクロール バー、ホイール、キーボードでスクロールしても表示が崩れない。
 
 #### 1-1. 改訂版のビルドと互換性の確認
 - 全構成（`Debug`/`Release` × `x64`/`Win32`）で 3 プロジェクトをビルドします。利用側は静的に確認したかぎり互換性があります（レビュー 8.2）が、次の点はコンパイラで確かめます。
@@ -322,8 +331,14 @@ point = DPtoLP(point);
 
 | 項目 | 内容 |
 |---|---|
-| 使われていないコード | `DoubleBuffer::CashDevice` と、コメントアウトされた `OnDragging` を削除 |
-| 綴り | `Hilight` → `Highlight`、`DrawSelecter` → `DrawSelector`、`Cash` → `Cache`、`erace` → `erase`、`maxmum` → `maximum`、`searchinRect` → `searchingRect`（機械的に一括置換） |
+| 使われていないコード | コメントアウトされた `OnDragging` を削除する。`CacheDevice` は公開 API として残し、旧名の別名 `CashDevice` だけを削除する（D4） |
+| 綴り | `Hilight` → `Highlight`、`DrawSelecter` → `DrawSelector`、`erace` → `erase`、`maxmum` → `maximum`、`searchinRect` → `searchingRect`（機械的に一括置換。`Cash` → `Cache` は対応済み） |
+| [D1] 名前空間の漏れ | `View.h` のグローバル スコープの `using namespace Shos::MFCDoubleBuffer;` をやめる。`View.h` では修飾名（または `View` クラス内の `using` 型別名）を使い、`View.cpp` では `using namespace` してよい |
+| [D2] 作業用ビットマップの再利用 | `DoubleBuffer` に作業用ビットマップをメンバーとして持たせ、クライアント領域の大きさが変わったとき（`Update()` / `OnSize`）だけ作り直す |
+| [D3] 描画失敗時の代替 | キャッシュや作業用ビットマップを作れなかったときは、背景色で塗りつぶして Layer 1 と Layer 2 を画面の DC に直接描く |
+| [D4] `CacheDevice` の前提条件 | キャッシュがまだない状態で使われたことを `ASSERT` で検出し、その前提をコメントに明記する |
+| [D5] コメントのファイル名 | `DoubleBuffer.h` / `DoubleBuffer.cpp` の冒頭コメントの `MFCDoubleBuffer.*` を実際のファイル名に直す（またはファイル名を `MFCDoubleBuffer.*` に変えてプロジェクトを更新する） |
+| [D6] 名前空間の命名 | `shos` と `Shos::MFCDoubleBuffer` のどちらの書き方に揃えるかを決めて統一する。アプリ本体のクラスを名前空間に入れるかどうかもあわせて決める |
 | `override` | 仮想関数をオーバーライドしている箇所すべてに `override` を付ける |
 | `DotFigure::radius` | `static constexpr long radius = 10L;` にする |
 | `Zooming` | メンバ初期化子の順序を宣言順に揃える（C5038） |
@@ -352,7 +367,7 @@ point = DPtoLP(point);
 | `Geometry.h` | | | | | | ● | ● |
 | `Figure.h` | | | | | | | ● |
 | `Command.h` | | | | | | | ● |
-| `DoubleBuffer.h` | | | | | | | ● |
+| `DoubleBuffer.h` / `.cpp` | | | | | | | ● |
 | テスト関連 | ● | | | | ● | | |
 | `README.md` | | | | | | | ● |
 
@@ -405,5 +420,5 @@ point = DPtoLP(point);
 
 - **図形の ID 化**: ポインタではなく ID で図形を識別し、ハイライト、`Hint`、選択での寿命の問題を根本から防ぐ。
 - **選択状態を Model の外に出す**: 選択を View の状態として持ち、Undo で選択状態が巻き戻らないようにする。
-- **描画キャッシュの差分更新**: Layer1 を全部作り直すのをやめ、無効化した範囲だけを描き直す。
+- **描画キャッシュの差分更新**: Layer1 を全部作り直すのをやめ、無効化した範囲だけを描き直す。今回の更新で、キャッシュに差分だけを描き足せる `DoubleBuffer::CacheDevice` が使えるようになりました。たとえば `Hint::Type::Added` のときは `Update()` を呼ばず、追加された図形を `CacheDevice` に描き足してから `InvalidateRect(..., FALSE)` する、という形で `View::OnUpdate` に組み込めます。
 - **シリアライズのバージョン管理**: `VERSIONABLE_SCHEMA` を導入し、将来の形式変更に備える。
