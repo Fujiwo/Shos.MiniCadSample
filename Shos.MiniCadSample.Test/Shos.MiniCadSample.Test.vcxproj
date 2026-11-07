@@ -167,6 +167,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Shos.MiniCadSample.Test.cpp" />
+    <ClCompile Include="FigureAttributeAndGeometryTest.cpp" />
     <ClCompile Include="ModelTest.cpp" />
     <!-- The parts of the application that the tests link to (IMPLEMENT_SERIAL, static members). -->
     <ClCompile Include="..\Shos.MiniCadSample\Figure.cpp">

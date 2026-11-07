@@ -326,5 +326,85 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual(0, notifications);
             Assert::AreEqual<size_t>(1, areas_of(model).size());
         }
+
+        // H3: changing the color of figures with different pen widths keeps each pen width.
+        TEST_METHOD(attribute_change_applies_only_changed_item)
+        {
+            Model model;
+            auto first  = new RectangleFigure(CRect(0, 0, 10, 10));
+            auto second = new EllipseFigure  (CRect(0, 0, 20, 20));
+            // Add sets the attribute for new figures.
+            model.GetCurrentFigureAttribute().SetPenWidth(1);
+            model.Add(first);
+            model.GetCurrentFigureAttribute().SetPenWidth(3);
+            model.Add(second);
+            model.Select(*first);
+            model.Select(*second);
+
+            auto change = FigureAttribute::Empty();
+            change.SetColor(RGB(9, 9, 9));
+            model.Update(change);
+
+            auto updatedFirst  = *model.begin();
+            auto updatedSecond = *std::next(model.begin());
+            Assert::AreEqual<COLORREF>(RGB(9, 9, 9), updatedFirst ->Attribute().GetColor());
+            Assert::AreEqual<COLORREF>(RGB(9, 9, 9), updatedSecond->Attribute().GetColor());
+            Assert::AreEqual(1, updatedFirst ->Attribute().GetPenWidth());
+            Assert::AreEqual(3, updatedSecond->Attribute().GetPenWidth());
+            Assert::IsTrue(updatedFirst ->Attribute().IsPenWidthValid());
+            Assert::IsTrue(updatedSecond->Attribute().IsPenWidthValid());
+
+            // One undo restores both.
+            model.Undo();
+            Assert::AreEqual<COLORREF>(RGB(0, 0, 0), (*model.begin())->Attribute().GetColor());
+            Assert::AreEqual<COLORREF>(RGB(0, 0, 0), (*std::next(model.begin()))->Attribute().GetColor());
+            Assert::IsTrue(model.CanUndo()); // The two additions remain.
+            model.Undo();
+            model.Undo();
+            Assert::IsFalse(model.CanUndo());
+        }
+
+        TEST_METHOD(attribute_change_without_effect_adds_no_undo_step)
+        {
+            Model model;
+            auto figure = new DotFigure(CPoint(10, 10));
+            model.GetCurrentFigureAttribute().SetPenWidth(2); // Add sets the attribute for new figures.
+            model.Add(figure);
+            model.Select(*figure);
+
+            int notifications = 0;
+            struct counter : Observer<Hint>
+            {
+                int& count;
+                explicit counter(int& count) : count(count) {}
+                void Update(const Hint&) override { count++; }
+            } observer(notifications);
+            model.AddObserver(observer);
+
+            auto change = FigureAttribute::Empty();
+            change.SetPenWidth(2);
+            model.Update(change);
+            Assert::AreEqual(0, notifications);
+            Assert::IsTrue(*model.begin() == figure); // Not replaced.
+            model.Undo();
+            Assert::IsFalse(model.CanUndo()); // The only step was the addition.
+        }
+
+        TEST_METHOD(attribute_change_without_selection_changes_attribute_for_new_figures)
+        {
+            Model model;
+            model.GetCurrentFigureAttribute().SetPenWidth(5);
+
+            auto change = FigureAttribute::Empty();
+            change.SetColor(RGB(9, 9, 9));
+            model.Update(change);
+
+            const auto& current = model.GetCurrentFigureAttribute();
+            Assert::AreEqual<COLORREF>(RGB(9, 9, 9), current.GetColor());
+            Assert::AreEqual(5, current.GetPenWidth());
+            Assert::IsTrue(current.IsColorValid());
+            Assert::IsTrue(current.IsPenWidthValid());
+            Assert::IsFalse(model.CanUndo());
+        }
     };
 }

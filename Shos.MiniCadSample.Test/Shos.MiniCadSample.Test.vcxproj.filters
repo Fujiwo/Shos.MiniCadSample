@@ -18,6 +18,9 @@
     <ClCompile Include="Shos.MiniCadSample.Test.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="FigureAttributeAndGeometryTest.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="ModelTest.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
