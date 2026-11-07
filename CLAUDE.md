@@ -40,9 +40,17 @@ Most logic lives in headers. The `.cpp` files mostly hold `IMPLEMENT_DYNCREATE`/
 
 **Figures** (`Figure.h`): `Figure : CObject` is serializable (`IMPLEMENT_SERIAL`) and has `Clone()`. `FigureHelper` makes random figures.
 
-**Undo/redo** (`undo_redo_vector.h`, namespace `shos`): `undo_redo_collection<TElement, TCollection>` records `add`/`remove`/`update` steps. A RAII `transaction` groups several steps into one undo unit. `undo_redo_pointer_collection` owns its pointers and passes `delete` as the clean-up function. Live elements are deleted when the collection is destroyed or `reset()`. Removed or replaced elements are kept by their undo step, which deletes them when the step itself is destroyed. Because of this:
+**Undo/redo** (`undo_redo_vector.h`, namespace `shos`): `undo_redo_collection<TElement, TCollection>` records insert/remove/update steps. Its iterators are always `const_iterator`, so elements can only be changed through `push_back`/`insert`/`erase`/`update`/`clear`. The collection is move-only.
+
+A RAII `transaction` groups several steps into one undo unit. Transactions can be nested; only the outermost one creates the step. While a transaction is open, `undo()`/`redo()` return `false` and `reset()` throws.
+
+`undo_redo_pointer_collection` owns its pointers and uses `delete` as the clean-up function. That function runs exactly once for each element when the element leaves for good: when its undo history is discarded (redo history truncated), on `reset()`, or when the collection is destroyed. The clean-up function must not throw.
+
+`synchronized_undo_redo_collection` is a thread-safe wrapper. The app does not use it.
+
+Because of this:
 - Never delete a `Figure` after passing it to `Model`.
-- To change a figure, `Clone()` it, edit the clone, and `update` the slot instead of changing it in place (see `Model::Update`/`Change`). That is what makes the change undoable.
+- To change a figure, `Clone()` it, edit the clone, and `update` the slot instead of changing it in place (see `Model::Update`). That is what makes the change undoable. Selection (`Figure::Select`) is the exception: it changes the figure in place and is not recorded.
 - Wrap multi-figure operations in `shos::undo_redo_vector<Figure*>::transaction`.
 
 Run `Shos.MiniCadSample.Test` and `Shos.MiniCadSample.MemoryLeakTest` after any change to `undo_redo_vector.h`.
