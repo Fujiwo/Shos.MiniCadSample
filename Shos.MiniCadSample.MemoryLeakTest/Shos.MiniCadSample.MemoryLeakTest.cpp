@@ -1,4 +1,15 @@
-﻿#include "MemoryLeakTest.h"
+﻿// Checks that undo_redo_vector.h does not leak memory, using the CRT debug heap.
+//
+// Usage (Debug build):
+//   Shos.MiniCadSample.MemoryLeakTest.exe               Runs all the scenarios. Exit code 0: no leak, 1: leaks (reported to stderr).
+//   Shos.MiniCadSample.MemoryLeakTest.exe --self-check  Leaks on purpose, to make sure that leaks are detected (exit code 1).
+//
+// In a Release build, leaks cannot be detected; the scenarios only run.
+
+#include "MemoryLeakTest.h"
+#include <cstdio>
+#include <cstring>
+#include <memory>
 #include "../Shos.MiniCadSample/undo_redo_vector.h"
 
 using namespace shos;
@@ -84,10 +95,128 @@ void undo_redo_pointer_vector_memory_leak_test()
     array.redo();
 }
 
-int main()
+void transaction_memory_leak_test()
 {
+    undo_redo_pointer_vector<foo> array;
+    array.push_back(new foo(100));
+    {
+        undo_redo_pointer_vector<foo>::transaction outer(array);
+        array.push_back(new foo(200));
+        {
+            undo_redo_pointer_vector<foo>::transaction inner(array);
+            array.update(array.begin(), new foo(1000));
+            array.erase(std::next(array.begin()));
+        }
+        array.clear();
+        array.push_back(new foo(300));
+    }
+    array.undo();
+    array.redo();
+    array.undo();
+
+    // A transaction left by an exception.
+    try {
+        undo_redo_pointer_vector<foo>::transaction transaction(array);
+        array.push_back(new foo(400));
+        throw 0;
+    } catch (int) {
+    }
+}
+
+void history_memory_leak_test()
+{
+    undo_redo_pointer_vector<foo> array;
+    array.push_back(new foo(100));
+    array.push_back(new foo(200));
+    array.push_back(new foo(300));
+    array.erase(array.begin());
+    array.update(array.begin(), new foo(2000));
+    array.undo();
+
+    array.clear_history(); // Deletes the elements held only by the history.
+    array.push_back(new foo(400));
+    array.undo();
+
+    array.reset();
+    array.push_back(new foo(500));
+}
+
+void move_memory_leak_test()
+{
+    undo_redo_pointer_vector<foo> source;
+    source.push_back(new foo(100));
+    source.push_back(new foo(200));
+    source.erase(source.begin());
+
+    auto target = std::move(source);
+    target.undo();
+
+    undo_redo_pointer_vector<foo> other;
+    other.push_back(new foo(900));
+    other = std::move(target);
+
+    source.push_back(new foo(300)); // A moved-from collection still deletes its elements.
+}
+
+void move_only_element_memory_leak_test()
+{
+    undo_redo_vector<std::unique_ptr<foo>> array;
+    array.push_back(std::make_unique<foo>(100));
+    array.push_back(std::make_unique<foo>(200));
+    array.update(array.begin(), std::make_unique<foo>(1000));
+    array.erase(std::next(array.begin()));
+    array.undo();
+    array.undo();
+}
+
+void synchronized_memory_leak_test()
+{
+    synchronized_undo_redo_vector<foo*> array([](foo*& element) { delete element; });
+    array.push_back(new foo(100));
+    array.push_back(new foo(200));
+    array.update(0, new foo(1000));
+    array.erase(1);
+    array.modify([](undo_redo_vector<foo*>& collection) {
+        collection.push_back(new foo(300));
+        collection.push_back(new foo(400));
+    });
+    array.undo();
+    array.clear_history();
+}
+
+int main(int argc, char* argv[])
+{
+#ifdef _DEBUG
+    // Report to stderr as well as to the debugger, so that leaks are visible on the command line.
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+#endif // _DEBUG
+
     CheckMemoryLeaksStart();
 
-    function_clean_up_test();
-    undo_redo_vector_memory_leak_test();
+    if (argc > 1 && std::strcmp(argv[1], "--self-check") == 0) {
+        new foo(12345); // Leaks on purpose.
+    } else {
+        function_clean_up_test();
+        undo_redo_vector_memory_leak_test();
+        undo_redo_pointer_vector_memory_leak_test();
+        transaction_memory_leak_test();
+        history_memory_leak_test();
+        move_memory_leak_test();
+        move_only_element_memory_leak_test();
+        synchronized_memory_leak_test();
+    }
+
+#ifdef _DEBUG
+    // Everything allocated above has been freed by now, so any block left is a leak.
+    // The check at exit (CheckMemoryLeaksStart) still runs too; this one sets the exit code.
+    if (_CrtDumpMemoryLeaks()) {
+        std::fputs("Memory leaks detected.\n", stderr);
+        return 1;
+    }
+    std::puts("No memory leaks detected.");
+#else // _DEBUG
+    std::puts("Release build: memory leaks are not checked.");
+#endif // _DEBUG
+    return 0;
 }

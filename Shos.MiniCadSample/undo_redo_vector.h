@@ -34,10 +34,25 @@
 #include <optional>
 #include <shared_mutex>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace shos {
+
+namespace detail {
+
+// Makes sure that vector can hold at least required elements without reallocating.
+// Grows the capacity geometrically, because std::vector::reserve may allocate exactly what is requested
+// (MSVC does), which would make a sequence of "reserve one more" calls O(n^2) in total.
+template <typename TVector>
+void reserve_at_least(TVector& vector, std::size_t required)
+{
+    if (vector.capacity() < required)
+        vector.reserve((std::max)(required, vector.capacity() * 2)); // (std::max) avoids the max macro of <windows.h>.
+}
+
+} // namespace detail
 
 // A collection that records every modification so that it can be undone / redone.
 //
@@ -47,11 +62,17 @@ namespace shos {
 //   Transactions can be nested; only the outermost one creates the undo step.
 // - undo() / redo() do nothing (return false) while a transaction is in progress.
 // - If a clean_up function is given, it is called exactly once for each element
-//   that leaves the collection for good (removed and its undo history discarded,
-//   or the collection is reset / destroyed).
+//   that leaves the collection for good (removed and its undo history discarded by a new modification,
+//   clear_history, reset, or destruction of the collection).
+//   The clean_up function must not throw: it is called from noexcept functions, so throwing calls std::terminate.
+// - An element passed to push_back / insert / update belongs to the collection from then on.
+//   If the call throws (e.g. std::bad_alloc), the element is passed to clean_up before the exception propagates,
+//   and the collection and its undo history are left unchanged.
 // - Not copyable. Movable, but must not be moved while a transaction is in progress.
 //
-// TElement    : the element type. It only needs to be movable (move-only types such as std::unique_ptr are fine).
+// TElement    : the element type. It must be nothrow move constructible, nothrow move assignable and nothrow swappable
+//               (pointers, arithmetic types, std::unique_ptr, std::string and so on).
+//               Move-only types such as std::unique_ptr are fine.
 // TCollection : the underlying sequence container (e.g. std::vector, std::list).
 //               It must support begin / end / insert / erase / front / back / size / empty / clear.
 //
@@ -69,6 +90,12 @@ namespace shos {
 template <typename TElement, typename TCollection = std::vector<TElement>>
 class undo_redo_collection
 {
+    // Moving elements between the collection and the undo steps must not fail halfway;
+    // otherwise an element could end up owned by both (cleaned up twice) or by neither (leaked).
+    static_assert(std::is_nothrow_move_constructible_v<TElement>, "TElement must be nothrow move constructible.");
+    static_assert(std::is_nothrow_move_assignable_v   <TElement>, "TElement must be nothrow move assignable.");
+    static_assert(std::is_nothrow_swappable_v         <TElement>, "TElement must be nothrow swappable.");
+
 public:
     using value_type        = TElement;
     using size_type         = std::size_t;
@@ -112,19 +139,22 @@ private:
 
     public:
         // Creates a step that inserts element at index when it is redone.
-        static std::unique_ptr<undo_step> insert(std::size_t index, TElement element)
+        // element is moved into the step only after the step has been allocated,
+        // so it is left untouched if this throws.
+        static std::unique_ptr<undo_step> insert(std::size_t index, TElement& element)
         {
-            return std::make_unique<insert_or_remove_step>(index, std::optional<TElement>(std::move(element)));
+            auto step = std::make_unique<insert_or_remove_step>(index);
+            step->element.emplace(std::move(element)); // Cannot throw (TElement is nothrow move constructible).
+            return step;
         }
 
         // Creates a step that removes the element at index when it is redone.
         static std::unique_ptr<undo_step> remove(std::size_t index)
         {
-            return std::make_unique<insert_or_remove_step>(index, std::nullopt);
+            return std::make_unique<insert_or_remove_step>(index);
         }
 
-        insert_or_remove_step(std::size_t position, std::optional<TElement> held_element)
-            : index(position), element(std::move(held_element))
+        explicit insert_or_remove_step(std::size_t position) : index(position)
         {}
 
         void undo(TCollection& collection) override
@@ -147,6 +177,10 @@ private:
 
     private:
         // Moves the element between this step and the collection, in whichever direction applies.
+        //
+        // Exception safety: only the insertion can throw (std::bad_alloc), and then nothing has changed:
+        // the container allocates before it moves the element in, and the element is still held by this step.
+        // The removal cannot throw, since moving and erasing nothrow-movable elements does not throw.
         void toggle(TCollection& collection)
         {
             if (element.has_value()) {
@@ -170,7 +204,16 @@ private:
         TElement    element; // The value that is not currently in the collection (new or old).
 
     public:
-        update_step(std::size_t position, TElement held_element) : index(position), element(std::move(held_element))
+        // Creates a step that replaces the element at index with element when it is redone.
+        // element is moved into the step only after the step has been allocated,
+        // so it is left untouched if this throws.
+        static std::unique_ptr<undo_step> create(std::size_t index, TElement& element)
+        {
+            // make_unique forwards the reference; the move happens in the constructor, after the allocation.
+            return std::make_unique<update_step>(index, std::move(element));
+        }
+
+        update_step(std::size_t position, TElement&& held_element) : index(position), element(std::move(held_element))
         {}
 
         void undo(TCollection& collection) override
@@ -212,7 +255,7 @@ private:
         // Makes sure that the next push_back does not allocate (and therefore cannot throw).
         void reserve_one_more()
         {
-            steps.reserve(steps.size() + 1);
+            detail::reserve_at_least(steps, steps.size() + 1);
         }
 
         void push_back(std::unique_ptr<undo_step> step)
@@ -284,15 +327,16 @@ public:
     undo_redo_collection(const undo_redo_collection&)            = delete;
     undo_redo_collection& operator=(const undo_redo_collection&) = delete;
 
-    // Takes over the elements, the undo history and the clean_up function.
-    // other is left empty without a clean_up function, so that nothing is cleaned up twice.
+    // Takes over the elements and the undo history, and copies the clean_up function.
+    // other is left empty (so nothing is cleaned up twice) but keeps its clean_up function, so that it can be reused
+    // (e.g. a moved-from undo_redo_pointer_collection still deletes the elements added to it later).
     undo_redo_collection(undo_redo_collection&& other)
         : data             (std::move(other.data))
         , undo_steps       (std::move(other.undo_steps))
         , undo_steps_index (std::exchange(other.undo_steps_index, 0))
         , transaction_group(std::move(other.transaction_group))
         , transaction_depth(std::exchange(other.transaction_depth, 0))
-        , clean_up         (std::exchange(other.clean_up, nullptr))
+        , clean_up         (other.clean_up)
     {
         // A moved-from standard container is only guaranteed to be valid, not empty.
         other.data.clear();
@@ -303,13 +347,14 @@ public:
     undo_redo_collection& operator=(undo_redo_collection&& other)
     {
         if (this != &other) {
+            auto function = other.clean_up; // Copied first: the only step that can throw, before anything changes.
             clean_up_all();
             data              = std::move(other.data);
             undo_steps        = std::move(other.undo_steps);
             undo_steps_index  = std::exchange(other.undo_steps_index, 0);
             transaction_group = std::move(other.transaction_group);
             transaction_depth = std::exchange(other.transaction_depth, 0);
-            clean_up          = std::exchange(other.clean_up, nullptr);
+            clean_up          = std::move(function);
             other.data.clear();
             other.undo_steps.clear();
         }
@@ -389,13 +434,15 @@ public:
     // Appends element to the end.
     void push_back(TElement element)
     {
-        execute(insert_or_remove_step::insert(data.size(), std::move(element)));
+        const auto index = data.size();
+        execute_taking(element, [&] { return insert_or_remove_step::insert(index, element); });
     }
 
     // Inserts element before position.
     void insert(const_iterator position, TElement element)
     {
-        execute(insert_or_remove_step::insert(index_of(position), std::move(element)));
+        const auto index = index_of(position);
+        execute_taking(element, [&] { return insert_or_remove_step::insert(index, element); });
     }
 
     // Removes the element at position. It is kept in the undo history, so clean_up is not called yet.
@@ -407,7 +454,8 @@ public:
     // Replaces the element at position with element. The old value is kept in the undo history.
     void update(const_iterator position, TElement element)
     {
-        execute(std::make_unique<update_step>(index_of(position), std::move(element)));
+        const auto index = index_of(position);
+        execute_taking(element, [&] { return update_step::create(index, element); });
     }
 
     // Removes all the elements as one undo step.
@@ -429,7 +477,26 @@ public:
         clean_up_all();
     }
 
+    // Discards the undo history but keeps the current elements. This cannot be undone.
+    // clean_up is called for the elements held only by the history (removed or replaced ones).
+    // Useful after loading data that should not be undoable. Throws std::logic_error during a transaction.
+    void clear_history()
+    {
+        if (in_transaction())
+            throw std::logic_error("undo_redo_collection::clear_history: cannot clear the history during a transaction");
+
+        discard_undo_steps(0);
+        undo_steps_index = 0;
+    }
+
     // ---- Undo / redo ----
+    //
+    // Exception safety:
+    // - With std::vector (the default), undo / redo never allocates and never throws: they only restore sizes
+    //   that the collection has already had, and a std::vector never gives back its capacity.
+    // - With a node-based container such as std::list, inserting an element back allocates and can throw
+    //   std::bad_alloc. A single step is then left unchanged (and stays undoable / redoable), but a transaction
+    //   can be left partially undone / redone.
 
     // Reverts the last applied step. Returns false if there is nothing to undo or a transaction is in progress.
     bool undo()
@@ -479,7 +546,7 @@ private:
     {
         if (transaction_depth == 0) {
             // Reserve here so that end_transaction, called from a destructor, never allocates.
-            undo_steps.reserve(undo_steps_index + 1);
+            detail::reserve_at_least(undo_steps, undo_steps_index + 1);
             transaction_group = std::make_unique<group_step>();
         }
         transaction_depth++;
@@ -498,20 +565,49 @@ private:
             push_to_undo_steps(std::move(group));
     }
 
+    // Creates a step with create_step, which takes over element, and executes it.
+    // If creating the step throws, element has not been taken over yet, so it is cleaned up here;
+    // after that, execute cleans up whatever the step holds.
+    template <typename TCreateStep>
+    void execute_taking(TElement& element, TCreateStep&& create_step)
+    {
+        std::unique_ptr<undo_step> step;
+        try {
+            step = create_step();
+        } catch (...) {
+            if (clean_up)
+                clean_up(element);
+            throw;
+        }
+        execute(std::move(step));
+    }
+
     // Applies the step to data, then records it.
-    // Space for the step is reserved first so that a failure leaves the collection unchanged.
     // During a transaction the step is added to the transaction's group instead of the undo history.
+    //
+    // Exception safety: everything that can throw (reserving the space for the step and applying it)
+    // happens before the step is recorded, and a failed step->redo changes nothing (see toggle).
+    // So on failure the collection and the history are unchanged, and the elements the step holds
+    // (the new element of an insert / update, which never entered the collection) are cleaned up.
     void execute(std::unique_ptr<undo_step> step)
     {
-        if (in_transaction()) {
-            transaction_group->reserve_one_more();
+        try {
+            if (in_transaction())
+                transaction_group->reserve_one_more();
+            else
+                detail::reserve_at_least(undo_steps, undo_steps_index + 1);
             step->redo(data);
-            transaction_group->push_back(std::move(step));
-        } else {
-            undo_steps.reserve(undo_steps_index + 1);
-            step->redo(data);
-            push_to_undo_steps(std::move(step));
+        } catch (...) {
+            if (clean_up)
+                step->clean_up_elements(clean_up);
+            throw;
         }
+
+        // Nothing below can throw.
+        if (in_transaction())
+            transaction_group->push_back(std::move(step));
+        else
+            push_to_undo_steps(std::move(step));
     }
 
     // Discards the steps that can be redone, then appends step as the latest undo step.
@@ -727,6 +823,13 @@ public:
     {
         std::scoped_lock lock(mutex);
         collection.reset();
+    }
+
+    // Discards the undo history but keeps the current elements. This cannot be undone.
+    void clear_history()
+    {
+        std::scoped_lock lock(mutex);
+        collection.clear_history();
     }
 
     // ---- Undo / redo ----
