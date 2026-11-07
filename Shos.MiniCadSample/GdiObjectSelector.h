@@ -15,6 +15,9 @@ public:
     {
         dc.SelectObject(oldGdiObject);
     }
+
+    GdiObjectSelectorBase(const GdiObjectSelectorBase&) = delete;
+    GdiObjectSelectorBase& operator=(const GdiObjectSelectorBase&) = delete;
 };
 
 class StockObjectSelector : public GdiObjectSelectorBase

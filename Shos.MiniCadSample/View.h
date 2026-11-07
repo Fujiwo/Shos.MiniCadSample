@@ -10,6 +10,8 @@
 #include "MainFrame.h"
 #include "MouseEventTranslator.h"
 
+using namespace Shos::MFCDoubleBuffer;
+
 class View : public
 #ifdef SCROLL_VIEW
     DoubleBufferScrollView
