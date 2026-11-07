@@ -44,7 +44,7 @@ protected:
         return reinterpret_cast<Document&>(*m_pDocument);
     }
 
-    virtual void View::OnInitialUpdate() override
+    virtual void OnInitialUpdate() override
     {
 #ifdef SCROLL_VIEW
         DoubleBufferScrollView::OnInitialUpdate();
