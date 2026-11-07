@@ -496,3 +496,43 @@ point = DPtoLP(point);
 - `Debug|x86`、`Release|x64`、`Release|x86` でビルドが成功し、新しい警告は出ていない。単体テストは 39 件すべて成功し、`MemoryLeakTest`（x86 Debug）でリークなし。
 - `Debug|x64` は、最初は Visual Studio がソリューションを開いていたため、中間ファイル（`vc145.pdb` など）がロックされてビルドできなかった。Visual Studio を閉じた後に再ビルドして成功し、新しい警告はなかった。単体テスト 39 件はすべて成功し、`MemoryLeakTest`（x64 Debug）でリークなし。
 - 完了条件の手動確認（開いた直後は Undo が無効、H4 の再現手順でクラッシュせず枠も残らない、選択なしの Delete で変更マークが付かない）: リポジトリ所有者が実施し、すべて問題なかった。
+
+### フェーズ 4（2026-11-08 実施。手動確認は未実施）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 4-1 | 完了 | 仕様どおり。Copy は選択があれば選択図形だけ、なければ全図形。Cut は選択がないと無効。Paste は 1 回の Undo で取り消せ、貼り付けた図形だけが選択される。 |
+| 4-2 | 完了 | `Model` に `StoreFigures`、`GetFiguresArea`、`DrawFigures`（選択マーカーなしで描く。`Figure::Draw(dc, drawSelector)` を追加）、`Paste`、`HasSelection`、`IsEmpty` を追加した。`Paste` は全部か無しにした（下記）。 |
+| 4-3 [H1] | 完了 | Cut は「Copy（選択図形）＋ `RemoveSelectedFigures`」にした。`DeleteContents` は呼ばない。 |
+| 4-4 [M4] | 完了 | 独自形式を `RegisterClipboardFormat(_T("Shos.MiniCadSample.Figures"))` で登録した。`globalMemoryHandle`、`OnDestroyClipboard`、`ON_WM_DESTROYCLIPBOARD` を削除した。読み込みの失敗（`CException*`、`std::exception`）は `Paste` が `false` を返し、View は警告音を鳴らす。 |
+| 4-5 | 完了 | `ClipboardHelper::Copy(window, area, background, store, draw)`、`Paste(window, load)`、`CanPaste()`、`GetFormat()` にした。`area` の左上を原点に移す座標変換とクリッピングは `ClipboardHelper` が行う。選択がある場合、`area` は選択図形の外接矩形（線幅と余白を含む）。全図形の場合はドキュメント全体で、従来どおり描画領域の背景色も描く。クリップボードは RAII（`ClipboardCloser`）で必ず閉じる。`SetClipboardData` に失敗したときはハンドルを解放する。 |
+| 4-6 | 完了 | Cut、Copy、Paste に `ON_UPDATE_COMMAND_UI` を追加した。Copy は図形が 1 つ以上あるとき、Cut は選択があるとき、Paste は独自形式のデータがあるときに有効。 |
+
+**Paste の全部か無しの実装**:
+1. `Model::ReadFigures` で一時的な `std::unique_ptr` のリストに読み込む。次の場合は `CArchiveException` を投げ、読み込み済みの図形は解放される。
+   - 件数どおりのデータがない
+   - `Figure` 以外のクラスが含まれる（`badClass`）
+   - 同じオブジェクトへの参照が重複している（`badIndex`。二重所有を防ぐ）
+2. 確定の前に、メモリを確保する処理をすべて済ませる（通知用の `Hint`、ダイアログに表示する属性）。
+3. 新しく追加した `undo_redo_collection::append` で、1 つの Undo ステップとして追加する。`append` は全部か無しで、失敗すると要素をすべて `clean_up` し、コレクションと履歴は変えない。`std::list` のようにノードの確保で途中失敗する場合は、適用済みのものを Undo して巻き戻す。
+4. 確定した後は、選択の変更と通知だけを行う。この部分で Model がメモリを確保することはない。
+
+ファイルの読み込み（`Model::Serialize`）も、同じ読み込みと確定の処理を使うようにした。そのため、壊れたファイルを開いても図形が途中まで追加されることはなくなった。
+
+**テスト（計画からの変更点：5-3 の案 A を前倒し）**: Paste の失敗テストには `Model`（MFC）が必要なため、テスト プロジェクトの `UseOfMfc` を `Dynamic` にした。`pch.h` ではアプリの `framework.h` を読み込み、アプリの `Figure.cpp` と `Geometry.cpp` もコンパイルするようにした。
+- `undo_redo_vector`: `append` の 4 件（基本、トランザクション内、確保失敗の注入、`std::list` での巻き戻し）。
+- `Model`（`ModelTest.cpp`）: 7 件。
+  - 選択図形の Copy と Paste（原点から離れた位置の外接矩形、貼り付け後の選択状態、1 回の Undo）
+  - 選択なしでの全図形の Copy
+  - 空のデータ
+  - 件数不足のデータ
+  - `Figure` 以外のクラス
+  - 重複参照
+  - 確保失敗の注入
+  - 選択なしの削除（L3）
+
+  失敗した場合は、図形、選択、Undo と Redo の状態が変わらないこと、`_CrtMemCheckpoint` でリークがないこと（Debug）を確かめる。一時的にリークを入れると、テストが失敗することも確かめた。
+- 合計 51 件。全構成（`Debug` / `Release` × `x64` / `x86`）でビルドが成功し、警告はベースラインから増えていない。テストはすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+- テスト環境の注意: Debug ビルドの MSVC STL は、`noexcept` のコンストラクタ（既定、ムーブ）でもコンテナ proxy を確保する。これを失敗させると `std::terminate` になり、テストが止まる。そのため、確保失敗の注入では proxy の確保を対象外にした（`Shos.MiniCadSample.Test.cpp` の `operator new`）。
+
+**未実施**: 完了条件と 4-5 の受け入れ確認（実機）。
