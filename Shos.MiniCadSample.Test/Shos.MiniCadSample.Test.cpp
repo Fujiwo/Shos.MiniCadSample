@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 #include "../Shos.MiniCadSample/undo_redo_vector.h"
+#include "../Shos.MiniCadSample/Observer.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -1043,6 +1044,68 @@ namespace ShosMiniCadSampleTest
             for (int undone = 0; undone < thread_count * count; undone++)
                 Assert::IsTrue(array.undo());
             Assert::IsTrue(array.empty());
+        }
+    };
+
+    TEST_CLASS(observable_test)
+    {
+        // Records the hints it receives.
+        class recorder : public Observer<int>
+        {
+        public:
+            std::vector<int> hints;
+
+            void Update(const int& hint) override
+            {
+                hints.push_back(hint);
+            }
+        };
+
+    public:
+        TEST_METHOD(notify)
+        {
+            Observable<int> observable;
+            recorder        first, second;
+            Assert::IsTrue(observable.AddObserver(first));
+            Assert::IsTrue(observable.AddObserver(second));
+
+            observable.NotifyObservers(1);
+            observable.NotifyObservers(2);
+            assert_values({ 1, 2 }, first.hints);
+            assert_values({ 1, 2 }, second.hints);
+        }
+
+        TEST_METHOD(add_same_observer_twice)
+        {
+            Observable<int> observable;
+            recorder        observer;
+            Assert::IsTrue (observable.AddObserver(observer));
+            Assert::IsFalse(observable.AddObserver(observer)); // H2: already registered; ignored.
+
+            observable.NotifyObservers(1);
+            assert_values({ 1 }, observer.hints); // Notified only once.
+        }
+
+        TEST_METHOD(remove_observer)
+        {
+            Observable<int> observable;
+            recorder        first, second, third;
+            observable.AddObserver(first);
+            observable.AddObserver(second);
+            observable.AddObserver(third);
+
+            Assert::IsTrue (observable.RemoveObserver(second));
+            Assert::IsFalse(observable.RemoveObserver(second)); // L5: really removed the first time.
+
+            observable.NotifyObservers(1);
+            assert_values({ 1 }, first.hints);
+            assert_values({},    second.hints);
+            assert_values({ 1 }, third.hints);
+
+            // It can be registered again after being removed.
+            Assert::IsTrue(observable.AddObserver(second));
+            observable.NotifyObservers(2);
+            assert_values({ 2 }, second.hints);
         }
     };
 }
