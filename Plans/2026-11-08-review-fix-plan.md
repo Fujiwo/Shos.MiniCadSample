@@ -594,3 +594,42 @@ point = DPtoLP(point);
   - 選択モードで右クリックしても選択状態が変わらない。右ドラッグによるパンは使える
   - 領域外まで範囲選択の枠をドラッグして離すと、領域内の図形が選択され、枠が残らない
   - 線や矩形を領域外までドラッグして描くと、終点が端で止まり、次のクリックで新しい図形を描き始める
+
+### フェーズ 7（2026-11-08 実施。D6 は未決定。手動確認は未実施）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 使われていないコード（D4） | 完了 | `View` と `Zooming` のコメントアウトされた `OnDragging`、旧名の別名 `CashDevice` を削除した。 |
+| 綴り | 完了 | `Hilight` → `Highlight`、`DrawSelecter` → `DrawSelector`、`maxmum` → `maximum`、`searchinRect` → `searchingRect`。`erace` はすでになかった。 |
+| D1 | 完了 | `View.h` のグローバルな `using namespace` をやめた。基底クラスは `View` 内の別名 `Base` で参照する。`View.cpp` では `using namespace` する（`IMPLEMENT_DYNCREATE` などのマクロが修飾名を扱えないため）。 |
+| D2 | 完了 | 作業用ビットマップをメンバーにした。キャッシュと同じくクライアント領域の大きさで、大きさが変わったときだけ作り直す（キャッシュも同様にした）。Layer 2 はクリップ ボックスでクリッピングする。 |
+| D3 | 完了 | ビットマップを作れなかったときは、背景色で塗りつぶし、Layer 1 と Layer 2 を画面の DC に直接描く。 |
+| D4 | 完了 | `CacheDevice` の前提条件（最初の WM_PAINT の後でしか使えない）をコメントに書き、`ASSERT` で検出する。 |
+| D5 | 完了 | コメントのファイル名を `DoubleBuffer.h` / `DoubleBuffer.cpp` に直した。 |
+| D6 | **未決定** | 名前空間の命名の統一は、リポジトリ所有者の判断を待つ。 |
+| `override` | 完了 | `Figure`、`Command`、`Document`、`View`、`Application`、`MouseEventTranslator::TestListener` で、オーバーライドしている仮想関数すべてに付けた。 |
+| `DotFigure::radius` | 完了 | `static constexpr long radius = 10L;` にした。 |
+| `Zooming` | 完了 | メンバ初期化子の順序を宣言順に揃えた。 |
+| 乱数 | 完了 | `std::uniform_int_distribution` を使う。`GetRandomFigure` の `default` 分岐は `nullptr` を返し、`GetRandomFigures` で除外する。 |
+| `Geometry::InRect` | 完了 | 右端と下端を含めて判定する。両方の矩形を正規化する。`GetArea` は 1 つ目の矩形も正規化し、ループ変数を `size_t` にした。 |
+| `AddDummyData` | 完了 | トランザクションではなく `append` で、1 回の Undo で取り消せるようにした（全部か無し）。通知用の `Hint` は確定の前に作る。 |
+| README | 完了 | 機能一覧のインデントをスペースに統一した。開発環境（C++20、Visual Studio 2026）、ビルド方法、テストの実行方法を追記した。 |
+
+**計画外の修正**:
+- 既存の警告 2 件を解消した。
+  - `DoubleBuffer.h` の C4458: `SetBackgroundColor` の引数名がメンバー名を隠していた。
+  - `Geometry.h` の C4018: `GetArea` のループ変数を `size_t` にした。
+- `SCROLL_VIEW` を有効にする（`ZOOMING_VIEW` を無効にする）とビルドできなかった。以前からの問題で、右ドラッグによるパンのハンドラーが `#ifdef ZOOMING_VIEW` の外で `zooming` を使っていた。ハンドラーを `#ifdef` で囲み、`SCROLL_VIEW` でのビルド（Debug x86）を確かめた。
+
+**テスト**: 2 件追加した（合計 73 件）。
+- `AddDummyData` が 1 回の Undo で取り消せること
+- `InRect` の境界（辺に接する場合、正規化していない矩形）
+
+**ビルドとテスト**: 全構成（`Debug` / `Release` × `x86` / `x64`）で、リポジトリ内でビルドが成功した。フェーズ 6 で失敗していた `Debug x64` も成功した。**警告は 0 件**になった。テスト 73 件がすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+
+**未実施**:
+- D6 の決定と対応
+- 手動確認（実機）。確認する項目は次のとおり。
+  - 描画とちらつき（D2 と D3 で描画処理を変えたため）
+  - 範囲選択の枠にぴったり接する図形が選択されること
+  - 「Random」で追加した図形が 1 回の Undo で消えること
