@@ -276,7 +276,7 @@ protected:
         }
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Select");
     }
@@ -289,7 +289,7 @@ protected:
         return message;
     }
 
-    virtual size_t GetMaximumCount() const
+    virtual size_t GetMaximumCount() const override
     {
         return 2UL;
     }
@@ -429,7 +429,7 @@ protected:
         return 1;
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Dot");
     }
@@ -465,7 +465,7 @@ protected:
         return 2;
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Line");
     }
@@ -521,7 +521,7 @@ protected:
         return new RectangleFigure(CRect(GetPoint(0), GetPoint(1)));
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Rectangle");
     }
@@ -545,7 +545,7 @@ protected:
         return new EllipseFigure(CRect(GetPoint(0), GetPoint(1)));
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Ellipse");
     }

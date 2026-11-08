@@ -133,8 +133,8 @@ private:
 
 class DotFigure : public Figure
 {
-    const long radius = 10L;
-    CPoint     position;
+    static constexpr long radius = 10L;
+    CPoint                position;
         
 public:
     DotFigure()
@@ -186,7 +186,7 @@ protected:
         return CRect(position - size, position + size);
     }
 
-    virtual std::vector<CPoint> GetPoints() const
+    virtual std::vector<CPoint> GetPoints() const override
     {
         return { position };
     }
@@ -250,7 +250,7 @@ protected:
         return area;
     }
 
-    virtual std::vector<CPoint> GetPoints() const
+    virtual std::vector<CPoint> GetPoints() const override
     {
         return { start, end };
     }
@@ -298,7 +298,7 @@ protected:
         return position;
     }
 
-    virtual std::vector<CPoint> GetPoints() const
+    virtual std::vector<CPoint> GetPoints() const override
     {
         return Geometry::ToPoints(position);
     }

@@ -113,7 +113,7 @@ protected:
         UpdateAllViews(nullptr, 0, const_cast<Hint*>(&hint));
     }
 
-    virtual void Serialize(CArchive& ar)
+    virtual void Serialize(CArchive& ar) override
     {
         model.Serialize(ar);
     }
@@ -127,7 +127,7 @@ public:
 
 protected:
 
-    virtual void DeleteContents()
+    virtual void DeleteContents() override
     {
         model.Reset();
         CDocument::DeleteContents();

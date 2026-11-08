@@ -105,9 +105,9 @@ protected:
     };
 
     // 背景色を変更する (キャッシュは次の描画時に作り直される)
-    void SetBackgroundColor(COLORREF backgroundColor)
+    void SetBackgroundColor(COLORREF newBackgroundColor)
     {
-        this->backgroundColor = backgroundColor;
+        backgroundColor = newBackgroundColor;
         Update();
     }
 

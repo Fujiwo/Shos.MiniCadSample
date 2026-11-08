@@ -112,13 +112,13 @@ protected:
 #endif // ZOOMING_VIEW
 
 #endif // SCROLL_VIEW
-    virtual void OnDrawLayer1(CDC& dc)
+    virtual void OnDrawLayer1(CDC& dc) override
     {
         GetDocument().DrawArea(dc);
         DrawFigures(dc, GetDocument());
     }
 
-    virtual void OnDrawLayer2(CDC& dc)
+    virtual void OnDrawLayer2(CDC& dc) override
     {
         GetDocument().DrawCommand(dc);
     }

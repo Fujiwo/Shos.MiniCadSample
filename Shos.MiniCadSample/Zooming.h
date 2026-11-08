@@ -16,7 +16,7 @@ class Zooming
 
 public:
     Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
-        : window(window), minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), isDragging(false)
+        : minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), window(window), isDragging(false)
     {
         ASSERT_VALID(&window);
     }

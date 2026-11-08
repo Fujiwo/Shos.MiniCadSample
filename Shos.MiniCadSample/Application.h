@@ -21,7 +21,7 @@ public:
             mainFrame->SendMessage(MainFrame::WM_SET_FIGURE_ATTRIBUTE_OBSERVER, reinterpret_cast<WPARAM>(&observer));
     }
     
-    virtual BOOL InitInstance();
+    virtual BOOL InitInstance() override;
 
 private:
     // Returns the main frame, or nullptr if it does not exist (yet / any more), e.g. during startup or shutdown.
