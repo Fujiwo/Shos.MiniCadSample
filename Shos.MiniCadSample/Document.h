@@ -11,7 +11,7 @@ using namespace Utilities;
 
 class Document : public CDocument, public Observer<Hint>, public MouseEventTranslator::Listener
 {
-    static const COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
+    static constexpr COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
 
     Model          model;
     CommandManager commandManager;
@@ -22,9 +22,9 @@ public:
 
     Model& GetModel() { return model; }
 
-    static const CSize GetMinimumSize() { return Model::GetMinimumSize(); }
-    static const CSize GetSize()        { return Model::GetSize()       ; }
-    static const CRect GetArea()        { return Model::GetArea()       ; }
+    static CSize GetMinimumSize() { return Model::GetMinimumSize(); }
+    static CSize GetSize()        { return Model::GetSize()       ; }
+    static CRect GetArea()        { return Model::GetArea()       ; }
 
     FigureAttribute& GetCurrentFigureAttribute()
     {
@@ -210,7 +210,7 @@ protected:
 
     afx_msg void OnFigureRandom()
     {
-        const size_t count = 10;
+        constexpr size_t count = 10;
         model.AddDummyData(count);
     }
 
@@ -231,7 +231,7 @@ private:
         UpdateAllViews(nullptr);
     }
     
-    bool IsValid(CPoint point)
+    static bool IsValid(CPoint point)
     {
         return GetArea().PtInRect(point);
     }

@@ -134,13 +134,14 @@ protected:
     {
         Update();
 
-        if (pHint == nullptr || static_cast<const Hint*>(pHint)->type == Hint::Type::All || static_cast<const Hint*>(pHint)->type == Hint::Type::ViewOnly) {
+        const auto hint = static_cast<const Hint*>(pHint);
+        if (hint == nullptr || hint->type == Hint::Type::All || hint->type == Hint::Type::ViewOnly) {
             Base::OnUpdate(pSender, lHint, pHint);
             return;
         }
 
         CRect area;
-        FigureHelper::GetArea(static_cast<const Hint*>(pHint)->figures, area);
+        FigureHelper::GetArea(hint->figures, area);
         
         TRACE(_T("View::OnUpdate: area   (top: %d, left: %d, width: %d, height: %d)\n"), area.top, area.left, area.Width(), area.Height());
         area = LPtoDP(area);
@@ -271,11 +272,12 @@ protected:
 private:
     void TrackMouseLeaveEvent() const
     {
-        TRACKMOUSEEVENT trackmouseevent;
-        trackmouseevent.cbSize      = sizeof(trackmouseevent);
-        trackmouseevent.dwFlags     = TME_LEAVE;
-        trackmouseevent.hwndTrack   = GetSafeHwnd();
-        trackmouseevent.dwHoverTime = HOVER_DEFAULT;
+        TRACKMOUSEEVENT trackmouseevent{
+            .cbSize      = sizeof(TRACKMOUSEEVENT),
+            .dwFlags     = TME_LEAVE,
+            .hwndTrack   = GetSafeHwnd(),
+            .dwHoverTime = HOVER_DEFAULT
+        };
         ::TrackMouseEvent(&trackmouseevent);
     }
 
@@ -320,7 +322,7 @@ private:
         }
     }
 
-    bool HasIntersection(const Figure& figure, const CRect& clipBox)
+    static bool HasIntersection(const Figure& figure, const CRect& clipBox)
     {
         CRect intersection;
         return intersection.IntersectRect(figure.GetArea(), clipBox);

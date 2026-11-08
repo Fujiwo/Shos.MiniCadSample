@@ -1,6 +1,7 @@
 #pragma once
 
 #include <afx.h>
+#include <ranges>
 #include <vector>
 #include "Observer.h"
 
@@ -13,10 +14,10 @@ namespace Shos::MiniCadSample::Models {
 // - A change (Empty() plus SetColor / SetPenWidth) has only the changed items valid; ApplyTo overwrites only those.
 class FigureAttribute
 {
-    COLORREF color;
-    bool     isColorValid;
-    int      penWidth;
-    bool     isPenWidthValid;
+    COLORREF color           = RGB(0x00, 0x00, 0x00);
+    bool     isColorValid    = true;
+    int      penWidth        = 0;
+    bool     isPenWidthValid = true;
 
 public:
     // An attribute with no valid item: the start of a change.
@@ -27,19 +28,17 @@ public:
         return attribute;
     }
 
-    static FigureAttribute GetSum(std::vector<FigureAttribute> attributes)
+    static FigureAttribute GetSum(const std::vector<FigureAttribute>& attributes)
     {
-        FigureAttribute result;
-        if (attributes.size() == 0) {
-            result.isColorValid = result.isPenWidthValid = false;
-        } else {
-            result = attributes[0];
-            for (size_t index = 1; index < attributes.size(); index++) {
-                if (attributes[index].color != result.color)
-                    result.isColorValid = false;
-                if (attributes[index].penWidth != result.penWidth)
-                    result.isPenWidthValid = false;
-            }
+        if (attributes.empty())
+            return Empty();
+
+        auto result = attributes.front();
+        for (const auto& attribute : attributes | std::views::drop(1)) {
+            if (attribute.color != result.color)
+                result.isColorValid = false;
+            if (attribute.penWidth != result.penWidth)
+                result.isPenWidthValid = false;
         }
         return result;
     }
@@ -100,8 +99,7 @@ public:
         return changed;
     }
 
-    FigureAttribute() : color(RGB(0x00, 0x00, 0x00)), isColorValid(true), penWidth(0), isPenWidthValid(true)
-    {}
+    FigureAttribute() = default;
 
     void Serialize(CArchive& ar)
     {

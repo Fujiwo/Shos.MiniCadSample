@@ -1,6 +1,8 @@
 #pragma once
 
 #include <afx.h>
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <vector>
 #include "Observer.h"
@@ -26,37 +28,34 @@ struct Hint : public CObject
     std::vector<Figure*> figures;
     Type                 type;
 
-    Hint(Type type) : type(type)
+    explicit Hint(Type type) : type(type)
     {}
 
-    Hint(Type type, Figure* figure) : type(type)
-    {
-        figures.push_back(figure);
-    }
+    Hint(Type type, Figure* figure) : figures{ figure }, type(type)
+    {}
 
-    Hint(Type type, std::vector<Figure*> figures) : type(type), figures(figures)
+    Hint(Type type, std::vector<Figure*> figures) : figures(std::move(figures)), type(type)
     {}
 };
 
 class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
-    static const LONG size                   = 2000L;
-    static const LONG minimumLogicalAreaSize = size / 10L;
+    static constexpr LONG size                   = 2000L;
+    static constexpr LONG minimumLogicalAreaSize = size / 10L;
 
-    shos::undo_redo_pointer_vector<Figure>   figures;
-    const Figure* highlightedFigure;
+    shos::undo_redo_pointer_vector<Figure> figures;
+    const Figure*                          highlightedFigure = nullptr;
 
     FigureAttribute currentFigureAttribute;
 
 public:
     using iterator = shos::undo_redo_vector<Figure*>::const_iterator;
 
-    static const CSize GetMinimumSize() { return CSize(minimumLogicalAreaSize, minimumLogicalAreaSize); }
-    static const CSize GetSize()        { return CSize(size, size); }
-    static const CRect GetArea()        { return CRect(CPoint(), GetSize()); }
+    static CSize GetMinimumSize() { return CSize(minimumLogicalAreaSize, minimumLogicalAreaSize); }
+    static CSize GetSize()        { return CSize(size, size); }
+    static CRect GetArea()        { return CRect(CPoint(), GetSize()); }
 
-    Model() : highlightedFigure(nullptr)
-    {}
+    Model() = default;
 
     // Does not notify anyone: the observers (the document, the main window) may already be being destroyed.
     virtual ~Model()
@@ -74,7 +73,7 @@ public:
     virtual void Update(const FigureAttribute& change) override
     {
         auto selectedFigures = GetSelectedFigures();
-        if (selectedFigures.size() == 0) {
+        if (selectedFigures.empty()) {
             change.ApplyTo(currentFigureAttribute);
             NotifyObservers(Hint(Hint::Type::ViewOnly));
         } else {
@@ -111,7 +110,7 @@ public:
     // Returns false (and deletes newFigure) if oldFigure is not in the model.
     bool Update(Figure& oldFigure, Figure& newFigure)
     {
-        auto iterator = std::find(figures.begin(), figures.end(), &oldFigure);
+        const auto iterator = std::ranges::find(figures, &oldFigure);
         if (iterator == figures.cend()) {
             delete &newFigure;
             return false;
@@ -147,11 +146,8 @@ public:
 
         {
             shos::undo_redo_vector<Figure*>::transaction transaction(figures);
-            std::for_each(selectedFigures.cbegin(), selectedFigures.cend(),
-                [&](Figure* figure) {
-                    auto iterator = std::find(figures.begin(), figures.end(), figure);
-                    figures.erase(iterator);
-                });
+            for (auto figure : selectedFigures)
+                figures.erase(std::ranges::find(figures, figure));
         }
         InvalidateHighlight();
         SetSelectedFigureAttribute();
@@ -165,7 +161,7 @@ public:
 
     bool HasSelection() const
     {
-        return std::any_of(figures.cbegin(), figures.cend(), [](const Figure* figure) { return figure->IsSelected(); });
+        return std::ranges::any_of(figures, &Figure::IsSelected);
     }
 
     bool IsEmpty() const
@@ -181,16 +177,15 @@ public:
 
     void Select(const CRect& area)
     {
-        std::for_each(figures.begin(), figures.end(),
-                [&](Figure* figure) {
-                         figure->Select(Geometry::InRect(area, figure->GetArea()));
-                      });
+        for (auto figure : figures)
+            figure->Select(Geometry::InRect(area, figure->GetArea()));
         SetSelectedFigureAttribute();
     }
 
     void UnSelectAll()
     {
-        std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
+        for (auto figure : figures)
+            figure->Select(false);
         SetSelectedFigureAttribute();
     }
 
@@ -294,8 +289,10 @@ public:
         CommitFigures(loaded); // All or nothing.
 
         // The model does not throw from here on.
-        std::for_each(figures.cbegin(), figures.cend(), [](Figure* figure) { figure->Select(false); });
-        std::for_each(pasted.cbegin(), pasted.cend(), [](Figure* figure) { figure->Select(true); });
+        for (auto figure : figures)
+            figure->Select(false);
+        for (auto figure : pasted)
+            figure->Select(true);
         InvalidateHighlight();
         NotifyObservers(addedHint);
         Application::Set(attribute);
@@ -362,7 +359,7 @@ private:
             if (figure == nullptr)
                 AfxThrowArchiveException(CArchiveException::badClass);
             // CArchive returns the same object again for a back reference; owning it twice would delete it twice.
-            if (std::any_of(loaded.cbegin(), loaded.cend(), [&](const std::unique_ptr<Figure>& each) { return each.get() == figure; })) {
+            if (std::ranges::any_of(loaded, [&](const auto& each) { return each.get() == figure; })) {
                 object.release();
                 AfxThrowArchiveException(CArchiveException::badIndex);
             }
@@ -406,10 +403,11 @@ private:
         return currentFigureAttribute;
     }
 
-    std::vector<FigureAttribute> GetSelectedFigureAttributes(const std::vector<Figure*> selectedFigures) const
+    static std::vector<FigureAttribute> GetSelectedFigureAttributes(const std::vector<Figure*>& selectedFigures)
     {
         std::vector<FigureAttribute> selectedFigureAttributes;
-        for (auto figure : selectedFigures)
+        selectedFigureAttributes.reserve(selectedFigures.size());
+        for (const Figure* figure : selectedFigures)
             selectedFigureAttributes.push_back(figure->Attribute());
         return selectedFigureAttributes;
     }
@@ -423,12 +421,7 @@ private:
     std::vector<Figure*> GetSelectedFigures() const
     {
         std::vector<Figure*> selectedFigures;
-        std::for_each(figures.cbegin(), figures.cend(),
-            [&](Figure* figure) {
-                if (figure->IsSelected())
-                    selectedFigures.push_back(figure);
-            });
-
+        std::ranges::copy_if(figures, std::back_inserter(selectedFigures), &Figure::IsSelected);
         return selectedFigures;
     }
 };

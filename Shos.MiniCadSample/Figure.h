@@ -1,7 +1,9 @@
 #pragma once
 
 #include <afx.h>
+#include <algorithm>
 #include <random>
+#include <vector>
 #include "FigureAttribute.h"
 #include "GdiObjectSelector.h"
 #include "Geometry.h"
@@ -12,13 +14,13 @@ using namespace Utilities;
 
 class Figure : public CObject
 {
-    static const long     selectorSize     = 10L;
-    static const long     selectorPenWidth = 5;
-    static const COLORREF selectedColor    = RGB(0x80, 0x00, 0x40);
-    static const COLORREF areaColor        = RGB(0x00, 0xa0, 0xff);
+    static constexpr long     selectorSize     = 10L;
+    static constexpr long     selectorPenWidth = 5;
+    static constexpr COLORREF selectedColor    = RGB(0x80, 0x00, 0x40);
+    static constexpr COLORREF areaColor        = RGB(0x00, 0xa0, 0xff);
     
     FigureAttribute attribute;
-    bool            isSelected;
+    bool            isSelected = false;
 
 public:
     const FigureAttribute& Attribute() const
@@ -31,9 +33,9 @@ public:
         return attribute;
     }
 
-    Figure() : isSelected(false)
-    {}
+    Figure() = default;
 
+    // Written by hand: CObject is not copyable, so these cannot be defaulted here (they can in the derived classes).
     Figure(const Figure& another) : attribute(another.attribute), isSelected(another.isSelected)
     {}
 
@@ -111,7 +113,7 @@ protected:
 
     virtual std::vector<CPoint> GetPoints() const
     {
-        return std::vector<CPoint>();
+        return {};
     }
     
 private:
@@ -121,8 +123,8 @@ private:
         CPen                pen(PS_SOLID, selectorPenWidth, selectedColor);
         GdiObjectSelector   penSelector(dc, pen);
 
-        auto points = GetPoints();
-        std::for_each(points.begin(), points.end(), [&](const CPoint& point) { DrawSelector(dc, point); });
+        for (const auto& point : GetPoints())
+            DrawSelector(dc, point);
     }
 
     void DrawSelector(CDC& dc, CPoint point) const
@@ -141,21 +143,12 @@ class DotFigure : public Figure
     CPoint                position;
         
 public:
-    DotFigure()
-    {}
-
-    DotFigure(const DotFigure& another) : Figure(another), position(another.position)
-    {}
+    DotFigure() = default;
+    DotFigure(const DotFigure&) = default;
+    DotFigure& operator =(const DotFigure&) = default;
 
     DotFigure(const CPoint& position) : position(position)
     {}
-
-    DotFigure& operator =(const DotFigure& another)
-    {
-        Figure::operator =(another);
-        position = another.position;
-        return *this;
-    }
 
     virtual Figure* Clone() override
     {
@@ -164,8 +157,7 @@ public:
 
     virtual long GetDistanceFrom(CPoint point) const override
     {
-        auto distance = Geometry::GetDistance(point, position) - radius;
-        return distance > 0L ? distance : 0L;
+        return (std::max)(Geometry::GetDistance(point, position) - radius, 0L);
     }
 
     virtual void Serialize(CArchive& ar) override
@@ -203,22 +195,12 @@ class LineFigure : public Figure
     CPoint start, end;
 
 public:
-    LineFigure()
-    {}
-
-    LineFigure(const LineFigure& another) : Figure(another), start(another.start), end(another.end)
-    {}
+    LineFigure() = default;
+    LineFigure(const LineFigure&) = default;
+    LineFigure& operator =(const LineFigure&) = default;
 
     LineFigure(CPoint start, CPoint end) : start(start), end(end)
     {}
-
-    LineFigure& operator =(const LineFigure& another)
-    {
-        Figure::operator =(another);
-        start = another.start;
-        end = another.end;
-        return *this;
-    }
 
     virtual Figure* Clone() override
     {
@@ -268,22 +250,13 @@ protected:
     CRect position;
 
 public:
-    RectangleFigureBase()
-    {}
-
-    RectangleFigureBase(const RectangleFigureBase& another) : Figure(another), position(another.position)
-    {}
+    RectangleFigureBase() = default;
+    RectangleFigureBase(const RectangleFigureBase&) = default;
+    RectangleFigureBase& operator =(const RectangleFigureBase&) = default;
 
     RectangleFigureBase(const CRect& position) : position(position)
     {
         this->position.NormalizeRect();
-    }
-
-    RectangleFigureBase& operator =(const RectangleFigureBase& another)
-    {
-        Figure::operator =(another);
-        position = another.position;
-        return *this;
     }
 
     virtual void Serialize(CArchive& ar) override
@@ -313,17 +286,12 @@ protected:
 class RectangleFigure : public RectangleFigureBase
 {
 public:
-    RectangleFigure()
-    {}
+    RectangleFigure() = default;
+    RectangleFigure(const RectangleFigure&) = default;
+    RectangleFigure& operator =(const RectangleFigure&) = default;
 
     RectangleFigure(const CRect& position) : RectangleFigureBase(position)
     {}
-
-    RectangleFigure& operator =(const RectangleFigure& another)
-    {
-        RectangleFigureBase::operator =(another);
-        return *this;
-    }
 
     virtual Figure* Clone() override
     {
@@ -347,17 +315,12 @@ protected:
 class EllipseFigure : public RectangleFigureBase
 {
 public:
-    EllipseFigure()
-    {}
+    EllipseFigure() = default;
+    EllipseFigure(const EllipseFigure&) = default;
+    EllipseFigure& operator =(const EllipseFigure&) = default;
 
     EllipseFigure(const CRect& position) : RectangleFigureBase(position)
     {}
-
-    EllipseFigure& operator =(const EllipseFigure& another)
-    {
-        RectangleFigureBase::operator =(another);
-        return *this;
-    }
 
     virtual Figure* Clone() override
     {
@@ -380,10 +343,9 @@ protected:
 
 class FigureHelper
 {
-    static const long         figureKindNumber = 4;
+    static constexpr long figureKindNumber = 4;
 
-    static std::random_device random;
-    static std::mt19937       mt;
+    inline static std::mt19937 mt{ std::random_device{}() };
 
 public:
     static std::vector<Figure*> GetRandomFigures(size_t count, const CRect& area)
@@ -398,13 +360,13 @@ public:
         return figures;
     }
 
-    static bool GetArea(std::vector<Figure*> figures, CRect& area)
+    static bool GetArea(const std::vector<Figure*>& figures, CRect& area)
     {
-        if (figures.size() == 0)
+        if (figures.empty())
             return false;
 
         std::vector<CRect> areas(figures.size());
-        std::transform(figures.begin(), figures.end(), areas.begin(), [](Figure* figure) { return figure->GetArea(); });
+        std::ranges::transform(figures, areas.begin(), &Figure::GetArea);
         return Geometry::GetArea(areas, area);
     }
 

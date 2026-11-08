@@ -22,7 +22,7 @@ public:
     // Returns false if it was already registered.
     bool AddObserver(Observer<THint>& observer)
     {
-        if (std::find(observers.begin(), observers.end(), &observer) != observers.end())
+        if (std::ranges::find(observers, &observer) != observers.end())
             return false;
         observers.push_back(&observer);
         return true;
@@ -31,11 +31,7 @@ public:
     // Unregisters observer. Returns false if it was not registered.
     bool RemoveObserver(Observer<THint>& observer)
     {
-        // std::remove only moves the remaining elements forward; erase actually shrinks the vector.
-        auto newEnd = std::remove(observers.begin(), observers.end(), &observer);
-        const bool removed = newEnd != observers.end();
-        observers.erase(newEnd, observers.end());
-        return removed;
+        return std::erase(observers, &observer) != 0;
     }
     
     void NotifyObservers(const THint& hint)

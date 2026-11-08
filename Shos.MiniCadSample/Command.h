@@ -1,6 +1,9 @@
 #pragma once
 
 #include <afx.h>
+#include <iterator>
+#include <memory>
+#include <vector>
 #include "Geometry.h"
 #include "Model.h"
 #include "MouseEventTranslator.h"
@@ -40,19 +43,16 @@ public:
     };
 
 private:
-    static const LONG     cursorLength    = 120;
-    static const long     cursorPenWidth  = 3;
-    static const COLORREF cursorColor     = RGB(0xff, 0x00, 0xff);
-    static const int      messageTextSize = cursorLength / 3;
-    static const int      messageMargin   = 10;
+    static constexpr LONG     cursorLength    = 120;
+    static constexpr long     cursorPenWidth  = 3;
+    static constexpr COLORREF cursorColor     = RGB(0xff, 0x00, 0xff);
+    static constexpr int      messageTextSize = cursorLength / 3;
+    static constexpr int      messageMargin   = 10;
 
     CPoint  cursorPosition;
-    bool    cursorPositionExists;
+    bool    cursorPositionExists = false;
 
 public:
-    Cursor() : cursorPositionExists(false)
-    {}
-
     void Draw(CDC& dc, const MessageHolder& messageHolder)
     {
         if (!cursorPositionExists)
@@ -83,10 +83,11 @@ private:
             { deviceCursorPosition.x, deviceCursorPosition.y - cursorLength },
             { deviceCursorPosition.x, deviceCursorPosition.y + cursorLength }
         };
-        dc.DPtoLP(points, sizeof(points) / sizeof(CPoint));
+        constexpr auto pointCount = static_cast<int>(std::ssize(points));
+        dc.DPtoLP(points, pointCount);
 
-        dc.Polyline(points, sizeof(points) / sizeof(CPoint) / 2);
-        dc.Polyline(points + 2, sizeof(points) / sizeof(CPoint) / 2);
+        dc.Polyline(points, pointCount / 2);
+        dc.Polyline(points + pointCount / 2, pointCount / 2);
     }
 
     static void DrawMessage(CDC& dc, CPoint cursorPosition, const MessageHolder& messageHolder)
@@ -110,15 +111,16 @@ private:
 
     static void CreateMessageFont(CFont& font, int textSize)
     {
-        LOGFONT logFont;
-        ::ZeroMemory(&logFont, sizeof(logFont));
-        logFont.lfHeight         = textSize;
-        logFont.lfCharSet        = DEFAULT_CHARSET;
-        logFont.lfOutPrecision   = OUT_DEFAULT_PRECIS;
-        logFont.lfClipPrecision  = CLIP_DEFAULT_PRECIS;
-        logFont.lfQuality        = DEFAULT_QUALITY;
-        logFont.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
-        lstrcpy(logFont.lfFaceName, _T("Arial"));
+        // The other members are zero.
+        LOGFONT logFont{
+            .lfHeight         = textSize,
+            .lfCharSet        = DEFAULT_CHARSET,
+            .lfOutPrecision   = OUT_DEFAULT_PRECIS,
+            .lfClipPrecision  = CLIP_DEFAULT_PRECIS,
+            .lfQuality        = DEFAULT_QUALITY,
+            .lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE,
+            .lfFaceName       = _T("Arial")
+        };
 
         font.CreateFontIndirect(&logFont);
     }
@@ -126,7 +128,7 @@ private:
 
 class Command : public CObject, public Cursor::MessageHolder, public MouseEventTranslator::Listener
 {
-    Model* model;
+    Model* model = nullptr;
     Cursor cursor;
 
 protected:
@@ -137,9 +139,6 @@ protected:
     }
     
 public:
-    Command() : model(nullptr)
-    {}
-
     void Set(Model& newModel)
     {
         model = &newModel;
@@ -205,21 +204,17 @@ protected:
 
 class SelectCommand : public Command
 {
-    static const LONG     searchingDistance = 100;
+    static constexpr LONG     searchingDistance = 100;
 
-    static const COLORREF areaPenColor      = RGB(0x40, 0x60, 0x80);
-    static const COLORREF areaBrushColor    = RGB(0x20, 0x30, 0x40);
+    static constexpr COLORREF areaPenColor      = RGB(0x40, 0x60, 0x80);
+    static constexpr COLORREF areaBrushColor    = RGB(0x20, 0x30, 0x40);
 
-    bool              hasDistanceToFigure;
-    long              distanceToFigure;
+    bool              hasDistanceToFigure = false;
+    long              distanceToFigure    = 0L;
 
     CPoint            areaTopLeft;
     CRect             area;
-    bool              isAreaValid;
-
-public:
-    SelectCommand() : hasDistanceToFigure(false), distanceToFigure(0L), isAreaValid(false)
-    {}
+    bool              isAreaValid         = false;
 
 protected:
     virtual void OnDraw(CDC& dc) override
@@ -351,10 +346,6 @@ class AddFigureCommand : public Command
 {
     CPoint              cursorPosition;
     std::vector<CPoint> points;
-
-public:
-    AddFigureCommand()
-    {}
 
 protected:
     virtual void OnDraw(CDC& dc) override
@@ -560,29 +551,24 @@ protected:
 
 class CommandManager : public MouseEventTranslator::Listener
 {
-    Model&    model;
-    Command*  currentCommand;
+    Model&                   model;
+    std::unique_ptr<Command> currentCommand;
     
 public:
-    CommandManager(Model& model) : model(model), currentCommand(nullptr)
+    explicit CommandManager(Model& model) : model(model)
     {
         SetCommand(new SelectCommand());
     }
 
-    virtual ~CommandManager()
-    {
-        delete currentCommand;
-    }
-
     bool IsRunning(CRuntimeClass* commandRuntimeClass) const
     {
-        return currentCommand == nullptr ? false : currentCommand->IsKindOf(commandRuntimeClass);
+        return currentCommand != nullptr && currentCommand->IsKindOf(commandRuntimeClass);
     }
     
+    // Takes the ownership of command (allocated with new).
     void SetCommand(Command* command)
     {
-        delete currentCommand;
-        currentCommand = command;
+        currentCommand.reset(command);
         currentCommand->Set(model);
     }
     
@@ -634,8 +620,8 @@ private:
         if (currentCommand == nullptr)
             return nullptr;
 
-        ASSERT_VALID(currentCommand);
-        return currentCommand;
+        ASSERT_VALID(currentCommand.get());
+        return currentCommand.get();
     }
 };
 

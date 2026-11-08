@@ -6,6 +6,8 @@
 
 #include <afx.h>
 #include <algorithm>
+#include <concepts>
+#include <ranges>
 #include <vector>
 #include "Geometry.h"
 
@@ -72,22 +74,22 @@ public:
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
 
 private:
-    static const long dragStartingDistance = 5;
+    static constexpr long dragStartingDistance = 5;
     
     CView&                 view;
     std::vector<Listener*> listeners;
-    bool                   isDragging;
+    bool                   isDragging = false;
     std::vector<CPoint>    points;
 
 public:
-    MouseEventTranslator(CView& view) : view(view), isDragging(false)
+    explicit MouseEventTranslator(CView& view) : view(view)
     {}
 
     // Registers listener. Registering the same listener again has no effect, so it never receives an event twice.
     // Returns false if it was already registered.
     bool AddListener(Listener& listener)
     {
-        if (std::find(listeners.begin(), listeners.end(), &listener) != listeners.end())
+        if (std::ranges::find(listeners, &listener) != listeners.end())
             return false;
         listeners.push_back(&listener);
         return true;
@@ -127,7 +129,7 @@ public:
         if ((keys & MK_LBUTTON) != 0L || (keys & MK_RBUTTON) != 0L) {
             if (isDragging)
                 OnDragging(keys, point);
-            else if (points.size() > 0)
+            else if (!points.empty())
                 OnDrag(keys, point);
         } else {
             OnCursor(point);
@@ -156,12 +158,12 @@ private:
 
     void OnDrag(UINT keys, CPoint point)
     {
-        ASSERT(points.size() > 0);
-        auto distance = Geometry::GetDistance(points[0], point);
+        ASSERT(!points.empty());
+        auto distance = Geometry::GetDistance(points.front(), point);
         if (distance > dragStartingDistance) {
-            OnDragStart(keys, points[0]);
-            for (size_t index = 1; index < points.size(); index++)
-                OnDragging(keys, points[index]);
+            OnDragStart(keys, points.front());
+            for (auto eachPoint : points | std::views::drop(1))
+                OnDragging(keys, eachPoint);
             OnDragging(keys, point);
 
             isDragging = true;
@@ -171,39 +173,46 @@ private:
         }
     }
 
+    // Calls notify(listener) for each listener.
+    void Notify(std::invocable<Listener&> auto notify)
+    {
+        for (auto listener : listeners)
+            notify(*listener);
+    }
+
     void OnClick(CPoint point)
     {
-        auto logicalPoint = DPtoLP(point);
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnClick(logicalPoint); });
+        const auto logicalPoint = DPtoLP(point);
+        Notify([&](Listener& listener) { listener.OnClick(logicalPoint); });
     }
 
     void OnCursor(CPoint point)
     {
-        auto logicalPoint = DPtoLP(point);
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnCursor(logicalPoint); });
+        const auto logicalPoint = DPtoLP(point);
+        Notify([&](Listener& listener) { listener.OnCursor(logicalPoint); });
     }
 
     void OnDragStart(UINT keys, CPoint point)
     {
-        auto logicalPoint = DPtoLP(point);
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragStart(keys, logicalPoint); });
+        const auto logicalPoint = DPtoLP(point);
+        Notify([&](Listener& listener) { listener.OnDragStart(keys, logicalPoint); });
     }
 
     void OnDragging(UINT keys, CPoint point)
     {
-        auto logicalPoint = DPtoLP(point);
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragging(keys, logicalPoint); });
+        const auto logicalPoint = DPtoLP(point);
+        Notify([&](Listener& listener) { listener.OnDragging(keys, logicalPoint); });
     }
 
     void OnDraggingAbort()
     {
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDraggingAbort(); });
+        Notify([](Listener& listener) { listener.OnDraggingAbort(); });
     }
 
     void OnDragEnd(UINT keys, CPoint point)
     {
-        auto logicalPoint = DPtoLP(point);
-        std::for_each(listeners.begin(), listeners.end(), [&](Listener* listener) { listener->OnDragEnd(keys, logicalPoint); });
+        const auto logicalPoint = DPtoLP(point);
+        Notify([&](Listener& listener) { listener.OnDragEnd(keys, logicalPoint); });
     }
 };
 
