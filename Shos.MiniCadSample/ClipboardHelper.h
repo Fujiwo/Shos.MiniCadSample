@@ -137,7 +137,7 @@ private:
     {
         CClientDC   clientDC(&window);
         CMetaFileDC metaDC;
-        if (!metaDC.CreateEnhanced(&clientDC, NULL, NULL, NULL))
+        if (!metaDC.CreateEnhanced(&clientDC, nullptr, nullptr, nullptr))
             return;
         draw(metaDC);
         const HENHMETAFILE enhancedMetaFileHandle = metaDC.CloseEnhanced();
@@ -166,7 +166,7 @@ private:
     static HGLOBAL ToImageStream(const CImage& image)
     {
         IStream*        stream       = nullptr;
-        HRESULT         result       = ::CreateStreamOnHGlobal(0, TRUE, &stream);
+        HRESULT         result       = ::CreateStreamOnHGlobal(nullptr, TRUE, &stream);
         if (!SUCCEEDED(result))
             return nullptr;
 
@@ -180,11 +180,11 @@ private:
         result                       = ::IStream_Size(stream, &streamSize);
         ASSERT(SUCCEEDED(result));
 
-        const ULONG     streamLength = (ULONG)streamSize.LowPart;
+        const ULONG     streamLength = static_cast<ULONG>(streamSize.LowPart);
         result                       = ::IStream_Reset(stream);
         ASSERT(SUCCEEDED(result));
 
-        constexpr ULONG bitmapFileHeaderSize = (ULONG)sizeof(BITMAPFILEHEADER);
+        constexpr ULONG bitmapFileHeaderSize = static_cast<ULONG>(sizeof(BITMAPFILEHEADER));
         const ULONG     actualStreamLength   = streamLength - bitmapFileHeaderSize;
         const HGLOBAL   imageHandle          = ::GlobalAlloc(GHND, actualStreamLength);
         if (imageHandle == nullptr) {

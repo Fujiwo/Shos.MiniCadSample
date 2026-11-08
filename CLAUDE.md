@@ -35,7 +35,7 @@ From Windows, use the same commands with `msbuild` / `vstest.console.exe` in a D
 
 Projects:
 - `Shos.MiniCadSample`: the MFC application (shared-DLL MFC, precompiled header `pch.h`).
-- `Shos.MiniCadSample.Test`: CppUnitTest DLL (uses MFC as a shared DLL). Its `pch.h` includes the app's `framework.h`. It compiles the app's `Figure.cpp` and `Geometry.cpp` (without the precompiled header) so it can test `Model` (`ModelTest.cpp`), `FigureAttribute` and `Geometry` (`FigureAttributeAndGeometryTest.cpp`) as well as `undo_redo_vector.h` and `Observer.h` (`Shos.MiniCadSample.Test.cpp`).
+- `Shos.MiniCadSample.Test`: CppUnitTest DLL (uses MFC as a shared DLL). Its `pch.h` includes the app's `framework.h`. It compiles the app's `Figure.cpp` (without the precompiled header) so it can test `Model` (`ModelTest.cpp`), `FigureAttribute` and `Geometry` (`FigureAttributeAndGeometryTest.cpp`) as well as `undo_redo_vector.h` and `Observer.h` (`Shos.MiniCadSample.Test.cpp`).
   - The test DLL replaces the global `operator new` so that a test can make the N-th allocation throw (the `allocation_failure` scope in `AllocationFailure.h`). Exception-safety tests loop over N until the operation succeeds. In Debug, the MSVC STL's container-proxy allocations are never failed, because they happen inside `noexcept` constructors.
   - `tracked` counts live instances to check ownership. `memory_leak_check` (`_CrtMemCheckpoint`, Debug only) checks that a failed `Model::Paste` leaks nothing.
   - An `ASSERT` or `abort()` in a Debug test shows a dialog and hangs `vstest.console`, so run tests with a `timeout`.
@@ -79,7 +79,7 @@ Most logic lives in headers. The `.cpp` files mostly hold `IMPLEMENT_DYNCREATE`/
 
 A RAII `transaction` groups several steps into one undo unit. Transactions can be nested; only the outermost one creates the step. While a transaction is open, `undo()`/`redo()` return `false`, and `reset()`/`clear_history()` throw. `clear_history()` drops the undo history but keeps the elements (for example, after loading a file).
 
-Element types must be nothrow movable and swappable (enforced by `static_assert`). If `push_back`, `insert` or `update` throws, the element passed in has already been cleaned up, and the collection and its history are left unchanged. With `std::vector`, `undo()`/`redo()` never allocate.
+Element types must be nothrow movable and swappable (the `undo_redo_element` concept). If `push_back`, `insert` or `update` throws, the element passed in has already been cleaned up, and the collection and its history are left unchanged. With `std::vector`, `undo()`/`redo()` never allocate.
 
 `undo_redo_pointer_collection` owns its pointers and uses `delete` as the clean-up function. That function runs exactly once for each element when the element leaves for good: when its undo history is discarded (redo history truncated), on `reset()`, or when the collection is destroyed. The clean-up function must not throw.
 

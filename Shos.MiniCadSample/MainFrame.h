@@ -13,8 +13,8 @@ class MainFrame : public CFrameWnd
     FigureAttributeDialog figureAttributeDialog;
 
 public:
-    static const UINT WM_SET_FIGURE_ATTRIBUTE          = WM_USER + 101;
-    static const UINT WM_SET_FIGURE_ATTRIBUTE_OBSERVER = WM_SET_FIGURE_ATTRIBUTE + 1;
+    static constexpr UINT WM_SET_FIGURE_ATTRIBUTE          = WM_USER + 101;
+    static constexpr UINT WM_SET_FIGURE_ATTRIBUTE_OBSERVER = WM_SET_FIGURE_ATTRIBUTE + 1;
 
 protected:
     afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct)

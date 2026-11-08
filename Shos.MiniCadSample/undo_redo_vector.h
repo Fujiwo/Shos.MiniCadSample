@@ -26,12 +26,14 @@
 //   numbers.undo();                    // { 1, 2 }  (the whole transaction is undone at once)
 
 #include <algorithm>
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <iterator>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <shared_mutex>
 #include <stdexcept>
 #include <type_traits>
@@ -39,6 +41,14 @@
 #include <vector>
 
 namespace shos {
+
+// The requirement on the elements of an undo_redo_collection.
+// Moving elements between the collection and the undo steps must not fail halfway;
+// otherwise an element could end up owned by both (cleaned up twice) or by neither (leaked).
+template <typename TElement>
+concept undo_redo_element = std::is_nothrow_move_constructible_v<TElement> &&
+                            std::is_nothrow_move_assignable_v   <TElement> &&
+                            std::is_nothrow_swappable_v         <TElement>;
 
 namespace detail {
 
@@ -71,7 +81,7 @@ void reserve_at_least(TVector& vector, std::size_t required)
 // - Not copyable. Movable, but must not be moved while a transaction is in progress.
 //
 // TElement    : the element type. It must be nothrow move constructible, nothrow move assignable and nothrow swappable
-//               (pointers, arithmetic types, std::unique_ptr, std::string and so on).
+//               (the undo_redo_element concept: pointers, arithmetic types, std::unique_ptr, std::string and so on).
 //               Move-only types such as std::unique_ptr are fine.
 // TCollection : the underlying sequence container (e.g. std::vector, std::list).
 //               It must support begin / end / insert / erase / front / back / size / empty / clear.
@@ -87,15 +97,9 @@ void reserve_at_least(TVector& vector, std::size_t required)
 //   - Steps before undo_steps_index (step0 - step2) have been applied; undo() reverts step2 and moves the index left.
 //   - Steps from undo_steps_index on (step3, step4) have been undone; redo() reapplies step3 and moves the index right.
 //   - A new modification discards step3 and step4 (they can no longer be redone) and is appended at the index.
-template <typename TElement, typename TCollection = std::vector<TElement>>
+template <undo_redo_element TElement, typename TCollection = std::vector<TElement>>
 class undo_redo_collection
 {
-    // Moving elements between the collection and the undo steps must not fail halfway;
-    // otherwise an element could end up owned by both (cleaned up twice) or by neither (leaked).
-    static_assert(std::is_nothrow_move_constructible_v<TElement>, "TElement must be nothrow move constructible.");
-    static_assert(std::is_nothrow_move_assignable_v   <TElement>, "TElement must be nothrow move assignable.");
-    static_assert(std::is_nothrow_swappable_v         <TElement>, "TElement must be nothrow swappable.");
-
 public:
     using value_type        = TElement;
     using size_type         = std::size_t;
@@ -288,18 +292,21 @@ private:
         // Reverts the steps in reverse order, since each step depends on the state left by the previous ones.
         void undo(TCollection& collection) override
         {
-            std::for_each(steps.rbegin(), steps.rend(), [&](const std::unique_ptr<undo_step>& step) { step->undo(collection); });
+            for (const auto& step : steps | std::views::reverse)
+                step->undo(collection);
         }
 
         // Reapplies the steps in their original order.
         void redo(TCollection& collection) override
         {
-            std::for_each(steps.begin(), steps.end(), [&](const std::unique_ptr<undo_step>& step) { step->redo(collection); });
+            for (const auto& step : steps)
+                step->redo(collection);
         }
 
         void clean_up_elements(const clean_up_function& clean_up) override
         {
-            std::for_each(steps.begin(), steps.end(), [&](const std::unique_ptr<undo_step>& step) { step->clean_up_elements(clean_up); });
+            for (const auto& step : steps)
+                step->clean_up_elements(clean_up);
         }
     };
 
@@ -326,7 +333,8 @@ public:
         undo_redo_collection& collection;
 
     public:
-        explicit transaction(undo_redo_collection& target) : collection(target)
+        // [[nodiscard]] catches "transaction(array);", which would end the transaction at once.
+        [[nodiscard]] explicit transaction(undo_redo_collection& target) : collection(target)
         {
             collection.begin_transaction();
         }
@@ -602,7 +610,7 @@ public:
 private:
     std::size_t index_of(const_iterator position) const
     {
-        return static_cast<std::size_t>(std::distance(data.cbegin(), position));
+        return static_cast<std::size_t>(std::ranges::distance(data.cbegin(), position));
     }
 
     // Called by the constructor of transaction. Only the outermost transaction starts a new group.
@@ -632,8 +640,7 @@ private:
     // Creates a step with create_step, which takes over element, and executes it.
     // If creating the step throws, element has not been taken over yet, so it is cleaned up here;
     // after that, execute cleans up whatever the step holds.
-    template <typename TCreateStep>
-    void execute_taking(TElement& element, TCreateStep&& create_step)
+    void execute_taking(TElement& element, std::invocable auto&& create_step)
     {
         std::unique_ptr<undo_step> step;
         try {
@@ -686,8 +693,10 @@ private:
     // Removes undo_steps[first] and the steps after it, cleaning up the elements only they hold.
     void discard_undo_steps(std::size_t first) noexcept
     {
-        if (clean_up)
-            std::for_each(undo_steps.begin() + first, undo_steps.end(), [&](const std::unique_ptr<undo_step>& step) { step->clean_up_elements(clean_up); });
+        if (clean_up) {
+            for (const auto& step : undo_steps | std::views::drop(first))
+                step->clean_up_elements(clean_up);
+        }
         undo_steps.erase(undo_steps.begin() + first, undo_steps.end());
     }
 
@@ -703,8 +712,10 @@ private:
         discard_undo_steps(0);
         undo_steps_index = 0;
 
-        if (clean_up)
-            std::for_each(data.begin(), data.end(), [&](TElement& element) { clean_up(element); });
+        if (clean_up) {
+            for (auto& element : data)
+                clean_up(element);
+        }
         data.clear();
     }
 };
@@ -715,6 +726,7 @@ private:
 //   undo_redo_pointer_vector<foo> array;
 //   array.push_back(new foo());  // Deleted by array; do not delete it yourself.
 template <typename TElement, typename TCollection = std::vector<TElement*>>
+    requires std::is_object_v<TElement>
 class undo_redo_pointer_collection : public undo_redo_collection<TElement*, TCollection>
 {
 public:
@@ -735,7 +747,7 @@ public:
 //
 // Read-only member functions take a shared lock (they can run at the same time),
 // and modifying ones take an exclusive lock.
-template <typename TElement, typename TCollection = std::vector<TElement>>
+template <undo_redo_element TElement, typename TCollection = std::vector<TElement>>
 class synchronized_undo_redo_collection
 {
 public:
@@ -814,7 +826,7 @@ public:
 
     // Calls function(const collection_type&) while holding a shared lock, and returns its result.
     // The result is returned by value so that no reference to the elements escapes the lock.
-    template <typename TFunction>
+    template <std::invocable<const collection_type&> TFunction>
     auto read(TFunction&& function) const
     {
         std::shared_lock lock(mutex);
@@ -825,7 +837,7 @@ public:
     // All the modifications made in function become one undo step.
     // If function throws, the modifications made so far are kept as one undo step, as with transaction.
     // function must not keep references or iterators to collection_type after it returns.
-    template <typename TFunction>
+    template <std::invocable<collection_type&> TFunction>
     auto modify(TFunction&& function)
     {
         // The lock is declared first so that it is released after the transaction has ended.

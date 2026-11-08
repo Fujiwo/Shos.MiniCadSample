@@ -14,13 +14,13 @@ class Zooming
     CRect       logicalArea;
     CWnd&       window;
 
-    bool        isDragging;
+    bool        isDragging = false;
     CPoint      dragStartPoint;
     CRect       dragStartLogicalArea;
 
 public:
     Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
-        : minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), window(window), isDragging(false)
+        : minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), window(window)
     {
         ASSERT_VALID(&window);
     }
@@ -54,9 +54,9 @@ public:
         window.ScreenToClient(&point);
         point = DPtoLP(point);
 
-        const auto deltaValue     = delta / (double)WHEEL_DELTA;
-        const auto denominator    = 10.0;
-        auto            newLogicalArea = logicalArea;
+        const auto     deltaValue     = delta / static_cast<double>(WHEEL_DELTA);
+        constexpr auto denominator    = 10.0;
+        auto           newLogicalArea = logicalArea;
 
         Geometry::Enlarge(newLogicalArea, point, (denominator - deltaValue) / denominator);
         return SetLogicalArea(newLogicalArea);
@@ -106,8 +106,8 @@ public:
 private:
     bool ShiftLogicalArea(const CRect& area)
     {
-        auto oldLogicalArea = logicalArea;
-        logicalArea              = Geometry::ShiftInto(area, maximumArea);
+        const auto oldLogicalArea = logicalArea;
+        logicalArea               = Geometry::ShiftInto(area, maximumArea);
 
         if (logicalArea != oldLogicalArea)
             TRACE(_T("Zooming::SetLogicalArea(left: %d, top: %d, width: %d, height: %d)\n"), logicalArea.left, logicalArea.top, logicalArea.Width(), logicalArea.Height());

@@ -2,6 +2,10 @@
 
 #include <afx.h>
 #include <algorithm>
+#include <cmath>
+#include <concepts>
+#include <limits>
+#include <ranges>
 #include <vector>
 
 namespace Shos::MiniCadSample::Utilities {
@@ -9,28 +13,29 @@ namespace Shos::MiniCadSample::Utilities {
 class Geometry
 {
 public:
-    static const long maximumDistance;
+    static constexpr long maximumDistance = (std::numeric_limits<long>::max)(); // (...) avoids the max macro of <windows.h>.
 
-    template <class T>
-    static T Square(T x)
+    template <typename T>
+        requires std::integral<T> || std::floating_point<T>
+    static constexpr T Square(T x)
     {
         return x * x;
     }
     
     static long Round(double x)
     {
-        return static_cast<long>(floor(x + 0.5));
+        return static_cast<long>(std::floor(x + 0.5));
     }
     
     // absolute value
     static long Abs(CPoint point)
     {
-        return Round(sqrt(Square(static_cast<double>(point.x)) + Square(static_cast<double>(point.y))));
+        return Round(std::sqrt(Square(static_cast<double>(point.x)) + Square(static_cast<double>(point.y))));
     }
     
     static long Abs(CSize size)
     {
-        return Round(sqrt(Square(static_cast<double>(size.cx)) + Square(static_cast<double>(size.cy))));
+        return Round(std::sqrt(Square(static_cast<double>(size.cx)) + Square(static_cast<double>(size.cy))));
     }
 
     static long GetDistance(CPoint point1, CPoint point2)
@@ -52,7 +57,7 @@ public:
         auto f1 = Mul(d, d2);
 
         return f0 > 0 ? Abs(d1)
-            : (f1 < 0 ? Abs(d2) : abs(d.cy * d1.cx - d.cx * d1.cy) / length);
+            : (f1 < 0 ? Abs(d2) : std::abs(d.cy * d1.cx - d.cx * d1.cy) / length);
     }
 
     static long GetDistance(CPoint point, const CRect& rect)
@@ -73,12 +78,12 @@ public:
         if (rect.Width() == 0 || rect.Height() == 0)
             return GetDistanceToLineSegment(point, rect.TopLeft(), rect.BottomRight());
 
-        auto rate = rect.Height() / (double)rect.Width();
+        auto rate = rect.Height() / static_cast<double>(rect.Width());
 
         auto d = point - rect.CenterPoint();
         d.cx = Round(d.cx * rate);
 
-        auto distance = abs(Abs(d) - rect.Height() / 2);
+        auto distance = std::abs(Abs(d) - rect.Height() / 2);
         distance = Round(distance / rate);
 
         return distance;
@@ -102,13 +107,12 @@ public:
     
     static bool GetArea(const std::vector<CRect>& areas, CRect& area)
     {
-        if (areas.size() == 0)
+        if (areas.empty())
             return false;
 
-        area = areas[0];
+        area = areas.front();
         area.NormalizeRect();
-        for (size_t index = 1; index < areas.size(); index++) {
-            auto eachArea = areas[index];
+        for (auto eachArea : areas | std::views::drop(1)) {
             eachArea.NormalizeRect();
             area.UnionRect(area, eachArea);
         }
@@ -136,7 +140,7 @@ public:
 
     static CRect EnlargeTo(const CRect& rect, CSize size)
     {
-        auto d = max(size.cx - rect.Width(), size.cy - rect.Height());
+        auto d = (std::max)(size.cx - rect.Width(), size.cy - rect.Height());
         if (d <= 0)
             return rect;
 
