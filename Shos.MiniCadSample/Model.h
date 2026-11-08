@@ -216,12 +216,12 @@ public:
         return figures.can_redo();
     }
 
-    void Hilight(const Figure* figure)
+    void Highlight(const Figure* figure)
     {
         highlightedFigure = figure;
     }
 
-    const Figure* Hilight() const
+    const Figure* Highlight() const
     {
         return highlightedFigure;
     }

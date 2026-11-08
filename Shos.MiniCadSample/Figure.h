@@ -65,7 +65,7 @@ public:
 
         DrawShape(dc);
         if (isSelected && drawSelector)
-            DrawSelecter(dc);
+            DrawSelector(dc);
     }
 
     void DrawArea(CDC& dc) const
@@ -111,17 +111,17 @@ protected:
     }
     
 private:
-    void DrawSelecter(CDC& dc) const
+    void DrawSelector(CDC& dc) const
     {
         StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
         CPen                pen(PS_SOLID, selectorPenWidth, selectedColor);
         GdiObjectSelector   penSelector(dc, pen);
 
         auto points = GetPoints();
-        std::for_each(points.begin(), points.end(), [&](const CPoint& point) { DrawSelecter(dc, point); });
+        std::for_each(points.begin(), points.end(), [&](const CPoint& point) { DrawSelector(dc, point); });
     }
 
-    void DrawSelecter(CDC& dc, CPoint point) const
+    void DrawSelector(CDC& dc, CPoint point) const
     {
         CRect rect(point, point);
         rect.InflateRect(selectorSize, selectorSize);
@@ -433,9 +433,9 @@ private:
         return CPoint(RandomValue(area.left, area.right), RandomValue(area.top, area.bottom));
     }
 
-    static LONG RandomValue(long minimum, long maxmum)
+    static LONG RandomValue(long minimum, long maximum)
     {
-        return minimum + mt() % (maxmum - minimum + 1);
+        return minimum + mt() % (maximum - minimum + 1);
     };
 
     static COLORREF RandomColor()

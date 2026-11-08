@@ -219,8 +219,8 @@ public:
 protected:
     virtual void OnDraw(CDC& dc) override
     {
-        if (GetModel().Hilight() != nullptr)
-            GetModel().Hilight()->DrawArea(dc);
+        if (GetModel().Highlight() != nullptr)
+            GetModel().Highlight()->DrawArea(dc);
 
         DrawArea(dc);
     }
@@ -240,7 +240,7 @@ protected:
     {
         auto nearestFigure = GetNearestFigure(point, &distanceToFigure);
         hasDistanceToFigure       = (nearestFigure != nullptr);
-        GetModel().Hilight(nearestFigure);
+        GetModel().Highlight(nearestFigure);
     }
     
     virtual void OnDragStart(UINT keys, CPoint point) override
@@ -300,12 +300,12 @@ private:
         auto       minimumDistance = Geometry::maximumDistance;
         Figure*    nearestFigure   = nullptr;
 
-        CRect      searchinRect(point, point);
-        searchinRect.InflateRect(searchingDistance, searchingDistance);
+        CRect      searchingRect(point, point);
+        searchingRect.InflateRect(searchingDistance, searchingDistance);
         
         for (auto figure : GetModel()) {
             CRect rect;
-            if (rect.IntersectRect(figure->GetArea(), searchinRect)) {
+            if (rect.IntersectRect(figure->GetArea(), searchingRect)) {
                 auto figureDistance = figure->GetDistanceFrom(point);
                 if (figureDistance < minimumDistance) {
                     minimumDistance = figureDistance;
