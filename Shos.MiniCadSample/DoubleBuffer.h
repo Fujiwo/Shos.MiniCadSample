@@ -1,4 +1,4 @@
-﻿// MFCDoubleBuffer.h : MFC のビュー向けダブルバッファリング ライブラリ
+﻿// DoubleBuffer.h : MFC のビュー向けダブルバッファリング ライブラリ
 //
 // ■ 仕組み
 //   ビューの描画内容を 2 つの層に分けて扱う。
@@ -61,6 +61,9 @@ protected:
     // OnPrepareDC 適用済みなので、論理座標 (スクロール位置を考慮した座標) で描画できる。
     // キャッシュが無効なとき (Update() の後など) に描いた内容は、次にキャッシュを作り直すときに捨てられる。
     //
+    // 前提条件: キャッシュのビットマップが作成済みであること (最初の WM_PAINT の後)。
+    // それより前に使うと、選択するビットマップがないため、描いた内容は捨てられる (デバッグ時は ASSERT で検出する)。
+    //
     //   例:
     //     DrawFigure(CacheDevice(*this), point);  // 一時オブジェクトとして使い、文の終わりで後始末される
     class CacheDevice final
@@ -73,6 +76,7 @@ protected:
     public:
         explicit CacheDevice(DoubleBuffer& doubleBuffer) : view(doubleBuffer.Window())
         {
+            ASSERT(doubleBuffer.cache.GetSafeHandle() != nullptr); // 最初の WM_PAINT より前には使えない
             CClientDC clientDC(&view);
             memoryDC.CreateCompatibleDC(&clientDC);
             selector.emplace(memoryDC, doubleBuffer.cache);
@@ -93,9 +97,6 @@ protected:
         operator CDC& ()
         { return memoryDC; }
     };
-
-    // 旧名 (綴りの誤り)。互換性のために残している
-    using CashDevice [[deprecated("CacheDevice を使用してください")]] = CacheDevice;
 
     // 背景色を変更する (キャッシュは次の描画時に作り直される)
     void SetBackgroundColor(COLORREF backgroundColor)
@@ -212,7 +213,7 @@ private:
 
 // ビュー クラス (CView またはその派生クラス) に、ダブルバッファリングを組み込むための共通の基底クラス
 // MFC のメッセージ マップはテンプレートでは定義できないため、
-// メッセージ ハンドラーの実装だけをここに置き、マップは派生クラス (MFCDoubleBuffer.cpp) で定義している。
+// メッセージ ハンドラーの実装だけをここに置き、マップは派生クラス (DoubleBuffer.cpp) で定義している。
 template <std::derived_from<CView> TView>
 class DoubleBufferViewBase : public TView, protected DoubleBuffer
 {

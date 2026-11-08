@@ -150,14 +150,6 @@ protected:
             zooming.OnDragStart(point);
     }
     
-    //virtual void OnDragging(UINT keys, CPoint point) override
-    //{
-    //    if ((keys & MK_RBUTTON) != 0U && zooming.OnDragging(point)) {
-    //        Update();
-    //        Invalidate();
-    //    }
-    //}
-    
     virtual void OnDraggingAbort() override
     {
         zooming.OnDraggingAbort();

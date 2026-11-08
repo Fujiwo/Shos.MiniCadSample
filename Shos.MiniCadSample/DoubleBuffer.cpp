@@ -1,5 +1,5 @@
-﻿// MFCDoubleBuffer.cpp : 実行時クラス情報とメッセージ マップの定義
-// クラスの実装はすべて MFCDoubleBuffer.h にある
+﻿// DoubleBuffer.cpp : 実行時クラス情報とメッセージ マップの定義
+// クラスの実装はすべて DoubleBuffer.h にある
 
 #include "pch.h"
 #include "framework.h"

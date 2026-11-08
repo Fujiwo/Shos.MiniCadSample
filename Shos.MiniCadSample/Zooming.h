@@ -59,11 +59,6 @@ public:
         isDragging           = true;
     }
 
-    //bool OnDragging(CPoint point)
-    //{
-    //    //return ShiftTo(point);
-    //}
-
     void OnDraggingAbort()
     {
         isDragging = false;
