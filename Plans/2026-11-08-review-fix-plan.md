@@ -431,7 +431,7 @@ point = DPtoLP(point);
 
 ## 9. 進捗
 
-### フェーズ 0（2026-11-08 実施、手動確認を除く）
+### フェーズ 0（2026-11-08 完了）
 
 - ベース: `main` の `fe480e6` から `fix/review-2026-11-08` を作成した。前提となる変更（`undo_redo_vector.h` の改訂、ダブルバッファ関連の更新）はコミット済みで、ブランチに含まれている。計画書の更新は `4c0a421` としてコミットした。
 - ベースライン（WSL から Visual Studio 18 の MSBuild と vstest を実行）:
@@ -442,13 +442,16 @@ point = DPtoLP(point);
   | 単体テスト（x64 / x86 Debug） | 14 件すべて成功 |
   | `MemoryLeakTest` | 終了コード 0。ただしリークの報告先がデバッガーの出力だけだったため、コマンド ラインからは判定できなかった（1-6 で対応） |
 
-- **未実施**: 6. の実機での手動確認（M2、M5、H2）。GUI の操作が必要なため、リポジトリ所有者の確認を待つ。
+- 6. の実機での手動確認: リポジトリ所有者が実施し、**3 件とも再現した**。いずれも計画どおり対応する。
+  - **H2**: 「新規作成」を 2 回した後、Dot で 1 回クリックすると点が 2 つ増える（フェーズ 2 で対応）
+  - **M2**: 貼り付けた図形がすぐに表示されない（フェーズ 4 で対応）
+  - **M5**: 属性ダイアログを × ボタンや Esc で閉じられない（フェーズ 6 で対応）
 
-### フェーズ 1（2026-11-08 実施、手動確認を除く）
+### フェーズ 1（2026-11-08 完了）
 
 | 項目 | 状態 | 内容 |
 |---|---|---|
-| 1-0 / 1-1 | ビルドとテストは完了。**手動確認は未実施** | 全構成でビルドが成功し、警告の種類もベースラインから増えていない。アプリの手動確認（ちらつき、リサイズ、ズーム、パン、`SCROLL_VIEW` 有効時のスクロール、Undo/Redo、削除、属性変更）は GUI の操作が必要なため未実施。 |
+| 1-0 / 1-1 | 完了 | 全構成でビルドが成功し、警告の種類もベースラインから増えていない。アプリの手動確認（ちらつき、リサイズ、ズーム、パン、`SCROLL_VIEW` 有効時のスクロール、Undo/Redo、削除、属性変更）は、リポジトリ所有者が実施して完了した。 |
 | 1-2 | 完了 | `clear_history()` を `undo_redo_collection` と `synchronized_undo_redo_collection` に追加した。 |
 | 1-3 [N1] | 完了 | 確保を `detail::reserve_at_least` で倍々に増やすようにした（`<windows.h>` の `max` マクロを避けるため `(std::max)` と書いた）。5 万回の `push_back` と、5 万要素を `clear()` して Undo する処理が、修正前の 151 秒から修正後は約 0.2 秒になった。旧実装に一時的に戻すと、テストが失敗することも確かめた。 |
 | 1-4 [N2][N3] | 完了 | 下記「計画からの変更点」を参照。 |
@@ -464,3 +467,195 @@ point = DPtoLP(point);
 - **Undo/Redo 中の失敗**: `std::vector` は容量を減らさないので、Undo/Redo では確保が起きないことが分かった。これをテスト（`vector_undo_redo_does_not_allocate`）で確かめ、コメントに明記した。`std::list` では、トランザクションの Undo/Redo が途中で失敗すると中途半端な状態になる可能性があり、これを制限事項としてコメントに記載した（1 ステップなら状態は変わらないことをテストで確認）。
 - **ムーブ後の `clean_up`（追加の修正）**: ムーブ元の `clean_up` が `nullptr` になっていたため、ムーブ元の `undo_redo_pointer_vector` を再利用すると黙ってリークしていた。ムーブ元にも `clean_up` を残すように変えた（データは空にするので、二重解放にはならない）。
 - **N4（スレッドセーフ版）**: 残す前提でテストを追加した（基本操作、`modify`、8 スレッドからの同時 `push_back`）。
+
+### フェーズ 2（2026-11-08 完了）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 2-1 [L5] | 完了 | `Observable::RemoveObserver` で `std::remove` の後に `erase` するようにした。登録されていなかった場合は `false` を返す。 |
+| 2-2 [H2] | 完了 | `Observable::AddObserver` と `MouseEventTranslator::AddListener` を冪等にした（登録済みなら `false` を返して何もしない）。`View::OnInitialUpdate` では、リスナー登録とオブザーバー登録を初回だけ行い、`Application::Set` による属性の表示は毎回行うようにした。 |
+
+- 単体テストに `observable_test` の 3 件を追加した（登録済みの相手を再登録しても通知は 1 回、削除が実際に効く、削除後に再登録できる）。合計 39 件。
+- 全構成（`Debug` / `Release` × `x64` / `x86`）でビルドが成功し、警告はベースラインから変わっていない。単体テストはすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+- 完了条件の手動確認（新規作成を 3 回した後、Dot で 1 回クリックすると点が 1 つだけ増える。ダイアログで線幅を 1 回変えた後、Ctrl+Z を 1 回押すと元に戻る）: リポジトリ所有者が実施し、完了した。
+
+### フェーズ 3（2026-11-08 完了）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 3-1 [H4] | 完了 | `Model::InvalidateHighlight()` を追加した。`Add`、`AddDummyData`、`RemoveSelectedFigures`、属性の `Update`、`Undo`、`Redo`、ファイル読み込み、`Append`（クリップボード）、`Reset`（`Clear`）で、ハイライトを解除する。 |
+| 3-2 [M6] | 完了 | 使われていない `Model::Remove`、`Model::Change`、`Document::Add` を削除した。 |
+| 3-3 [L3] | 完了 | `RemoveSelectedFigures` で、選択が空なら何もしない（Undo ステップも通知もなく、変更フラグも立たない）。 |
+| 3-4 [L4] | 完了 | 属性変更の通知 `Hint(Changed, ...)` に、旧図形と新図形の両方を含めた。あわせて `Update(Figure&, Figure&)` で、旧図形が見つからなかったときに複製がリークしていた問題を直した（`bool` を返し、複製を削除する）。 |
+| 3-5 [M1] | 完了 | `Model::Serialize`（ファイル専用）の読み込み後に `clear_history()` を呼び、`Hint::Type::All` を通知するようにした。 |
+| 3-6 [L6] | 完了 | `Reset()` を、通知しない `Clear()`（private）と、通知する `Reset()` に分けた。`~Model` は `Clear()` だけを呼ぶ。`Application::Set` と `SetFigureAttributeObserver` は、メイン ウィンドウがない（または破棄済み）なら何もしないようにした（`GetMainFrame()`）。 |
+
+**計画からの変更点（3-5 の前倒し）**: これまで、クリップボードからの貼り付けも `Document::Serialize` → `Model::Serialize` を通っていた。そのため、3-5 だけを行うと、貼り付けのたびに Undo 履歴が消える後退が起きる。これを避けるため、フェーズ 4 の一部を前倒しして、貼り付けを `Model::Append(CArchive&)`（従来どおり、図形ごとに Undo できる形で追加）に分けた。`ClipboardHelper::OnEditPaste` は、読み込み処理をコールバック（`std::function<void(CArchive&)>`）で受け取るようにした（4-5 のインターフェースに合わせた）。貼り付けた図形がすぐに表示されない問題（M2）と、Undo が 1 図形ずつになる問題は、フェーズ 4 で対応する。
+
+**確認結果**:
+- `Debug|x86`、`Release|x64`、`Release|x86` でビルドが成功し、新しい警告は出ていない。単体テストは 39 件すべて成功し、`MemoryLeakTest`（x86 Debug）でリークなし。
+- `Debug|x64` は、最初は Visual Studio がソリューションを開いていたため、中間ファイル（`vc145.pdb` など）がロックされてビルドできなかった。Visual Studio を閉じた後に再ビルドして成功し、新しい警告はなかった。単体テスト 39 件はすべて成功し、`MemoryLeakTest`（x64 Debug）でリークなし。
+- 完了条件の手動確認（開いた直後は Undo が無効、H4 の再現手順でクラッシュせず枠も残らない、選択なしの Delete で変更マークが付かない）: リポジトリ所有者が実施し、すべて問題なかった。
+
+### フェーズ 4（2026-11-08 完了）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 4-1 | 完了 | 仕様どおり。Copy は選択があれば選択図形だけ、なければ全図形。Cut は選択がないと無効。Paste は 1 回の Undo で取り消せ、貼り付けた図形だけが選択される。 |
+| 4-2 | 完了 | `Model` に `StoreFigures`、`GetFiguresArea`、`DrawFigures`（選択マーカーなしで描く。`Figure::Draw(dc, drawSelector)` を追加）、`Paste`、`HasSelection`、`IsEmpty` を追加した。`Paste` は全部か無しにした（下記）。 |
+| 4-3 [H1] | 完了 | Cut は「Copy（選択図形）＋ `RemoveSelectedFigures`」にした。`DeleteContents` は呼ばない。 |
+| 4-4 [M4] | 完了 | 独自形式を `RegisterClipboardFormat(_T("Shos.MiniCadSample.Figures"))` で登録した。`globalMemoryHandle`、`OnDestroyClipboard`、`ON_WM_DESTROYCLIPBOARD` を削除した。読み込みの失敗（`CException*`、`std::exception`）は `Paste` が `false` を返し、View は警告音を鳴らす。 |
+| 4-5 | 完了 | `ClipboardHelper::Copy(window, area, background, store, draw)`、`Paste(window, load)`、`CanPaste()`、`GetFormat()` にした。`area` の左上を原点に移す座標変換とクリッピングは `ClipboardHelper` が行う。選択がある場合、`area` は選択図形の外接矩形（線幅と余白を含む）。全図形の場合はドキュメント全体で、従来どおり描画領域の背景色も描く。クリップボードは RAII（`ClipboardCloser`）で必ず閉じる。`SetClipboardData` に失敗したときはハンドルを解放する。 |
+| 4-6 | 完了 | Cut、Copy、Paste に `ON_UPDATE_COMMAND_UI` を追加した。Copy は図形が 1 つ以上あるとき、Cut は選択があるとき、Paste は独自形式のデータがあるときに有効。 |
+
+**Paste の全部か無しの実装**:
+1. `Model::ReadFigures` で一時的な `std::unique_ptr` のリストに読み込む。次の場合は `CArchiveException` を投げ、読み込み済みの図形は解放される。
+   - 件数どおりのデータがない
+   - `Figure` 以外のクラスが含まれる（`badClass`）
+   - 同じオブジェクトへの参照が重複している（`badIndex`。二重所有を防ぐ）
+2. 確定の前に、メモリを確保する処理をすべて済ませる（通知用の `Hint`、ダイアログに表示する属性）。
+3. 新しく追加した `undo_redo_collection::append` で、1 つの Undo ステップとして追加する。`append` は全部か無しで、失敗すると要素をすべて `clean_up` し、コレクションと履歴は変えない。`std::list` のようにノードの確保で途中失敗する場合は、適用済みのものを Undo して巻き戻す。
+4. 確定した後は、選択の変更と通知だけを行う。この部分で Model がメモリを確保することはない。
+
+ファイルの読み込み（`Model::Serialize`）も、同じ読み込みと確定の処理を使うようにした。そのため、壊れたファイルを開いても図形が途中まで追加されることはなくなった。
+
+**テスト（計画からの変更点：5-3 の案 A を前倒し）**: Paste の失敗テストには `Model`（MFC）が必要なため、テスト プロジェクトの `UseOfMfc` を `Dynamic` にした。`pch.h` ではアプリの `framework.h` を読み込み、アプリの `Figure.cpp` と `Geometry.cpp` もコンパイルするようにした。
+- `undo_redo_vector`: `append` の 4 件（基本、トランザクション内、確保失敗の注入、`std::list` での巻き戻し）。
+- `Model`（`ModelTest.cpp`）: 7 件。
+  - 選択図形の Copy と Paste（原点から離れた位置の外接矩形、貼り付け後の選択状態、1 回の Undo）
+  - 選択なしでの全図形の Copy
+  - 空のデータ
+  - 件数不足のデータ
+  - `Figure` 以外のクラス
+  - 重複参照
+  - 確保失敗の注入
+  - 選択なしの削除（L3）
+
+  失敗した場合は、図形、選択、Undo と Redo の状態が変わらないこと、`_CrtMemCheckpoint` でリークがないこと（Debug）を確かめる。一時的にリークを入れると、テストが失敗することも確かめた。
+- 合計 51 件。全構成（`Debug` / `Release` × `x64` / `x86`）でビルドが成功し、警告はベースラインから増えていない。テストはすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+- テスト環境の注意: Debug ビルドの MSVC STL は、`noexcept` のコンストラクタ（既定、ムーブ）でもコンテナ proxy を確保する。これを失敗させると `std::terminate` になり、テストが止まる。そのため、確保失敗の注入では proxy の確保を対象外にした（`Shos.MiniCadSample.Test.cpp` の `operator new`）。
+
+- 完了条件と 4-5 の受け入れ確認（実機）: リポジトリ所有者が実施し、すべて問題なかった。確認した項目は次のとおり。
+  - Cut で選択図形だけが消え、Undo で戻る
+  - Paste がすぐに表示され、1 回の Undo で取り消せる
+  - 2 つのインスタンスの間で Copy と Paste ができる
+  - Word に EMF として貼り付けられる
+  - 原点から離れた選択図形を、独自形式、EMF、DIB のいずれでも余白なく出力できる
+  - Cut、Copy、Paste の有効と無効が正しく切り替わる
+
+### フェーズ 5（2026-11-08 完了）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 5-1 [H3] | 完了 | `FigureAttribute` に `Empty()`、`ApplyTo(target)`（有効な項目だけを上書きし、変わったかどうかを返す）、`IsEmpty()` を追加した。`SetColor` と `SetPenWidth` は項目を有効にし、値か有効フラグが変わったときに `true` を返す。ダイアログは、変更した項目だけが有効な差分を通知し、表示用の `figureAttribute` にも同じ差分を適用する。`Model::Update(change)` は、選択なしなら新規図形用の属性に、選択ありなら各複製に差分を適用する。 |
+| 5-2 | 完了（計画から変更） | 下記のとおり、1 回の操作で変わる項目は常に 1 つになったため、まとめる処理は不要になった。 |
+| 5-3 [T3] | 完了 | MFC 化はフェーズ 4 で済んでいる。テストを 19 件追加した（合計 70 件）。 |
+
+**計画からの変更点（5-2）**: これまでは、色ボタンと「Set」ボタンのどちらを押しても `UpdateData(TRUE)` で色と線幅の両方を保存していた。そのため、色が混在している（ダイアログでは自動色で表示される）ときに線幅を変えると、表示中の自動色まで全図形に適用されるおそれがあった。これは H3 と同じ種類の問題である。そこで、`OnCommand` で押されたボタンに対応する項目だけを読むようにした。色ボタンでは色だけ、「Set」ボタンでは線幅だけを読む。`DoDataExchange` は表示（読み込み）だけを行う。線幅の欄が空（線幅が混在）のときは何もしない。数値にならない値（大きすぎる値）では警告音を鳴らす。
+
+**その他の変更**:
+- 差分を適用しても属性が変わらない図形は、置き換えない（Undo ステップを作らない）。1 つも変わらない場合は通知もしない。
+- 複製は `std::unique_ptr` で保持し、適用しない場合に解放する。
+
+**テスト**:
+- `figure_attribute_test`（9 件）: 既定値、`Empty`、`Set` で有効になること、`GetSum`（空、一致、混在）、`ApplyTo`（有効な項目だけを上書き、無効な項目を有効にする）、H3 の再現（線幅 1 と 3 の属性に色だけの差分を適用すると、線幅が保たれる）。
+- `geometry_test`（7 件）: 2 点間の距離、線分までの距離（垂線、線分上、両端の外、長さ 0）、矩形までの距離、円と楕円までの距離、つぶれた楕円、`GetArea`（正規化していない矩形を含む）。
+  - `GetDistanceToEllipse` は近似である。円の上と長軸方向は正確だが、横長の楕円の短軸方向では距離を大きく見積もる（例: 幅 200、高さ 100 の楕円の中心から下へ 100 の点は、実際は 50 だが 100 になる）。今回は動作を変えず、正確な場合だけをテストした。
+- `model_test`（3 件）: 線幅の異なる 2 図形の色だけを変えると線幅が保たれ、1 回の Undo で戻ること。効果のない変更では Undo ステップも通知も作られないこと。選択なしでは新規図形用の属性の該当項目だけが変わること。
+- 全構成（`Debug` / `Release` × `x64` / `x86`）でビルドが成功し、テスト 70 件がすべて成功した。`MemoryLeakTest`（x64 / x86 Debug）でリークなし。テスト プロジェクトが `Geometry.h` を読み込むようになったため、既存の `Geometry.h(106)` の C4018 が x86 ではテスト プロジェクトでも出る（警告の種類は増えていない）。
+
+- 完了条件の手動確認（実機）: リポジトリ所有者が実施し、すべて問題なかった。確認した項目は次のとおり。
+  - 線幅の異なる 2 図形の色だけを変えると、色だけが変わる
+  - その後 1 つだけを選ぶと、ダイアログに色と線幅が正しく表示される
+  - 色の異なる図形の線幅を「Set」で変えても、色は変わらない
+  - 1 回の Undo で色の変更が戻る
+
+### フェーズ 6（2026-11-08 完了）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 6-1 [M3] | 完了 | `Zooming::OnMouseWheel` で、スクリーン座標を `ScreenToClient` でクライアント座標にし、`DPtoLP` の戻り値を使うようにした。`ShiftTo` 内の未使用変数を削除し、`OnDragEnd` の後で `isDragging` を `false` に戻すようにした。 |
+| 6-2 [M5] | 完了 | `OnCommand` の戻り値を `BOOL` にし、色ボタンと「Set」ボタン以外は `CDialogEx::OnCommand` に渡すようにした。× ボタンと Esc は `OnCancel` でダイアログを隠す。`OnOK`（Enter）は線幅を適用し、ダイアログは閉じない。フェーズ 5 で `DoDataExchange` を表示専用にしたため、`OnOK` は `UpdateData(TRUE)` ではなく `SavePenWidth()` を呼ぶ。 |
+| 6-3 [L1] | 完了 | `MouseEventTranslator::OnRButtonUp` で、ドラッグしていなければ `OnClick` を送らないようにした。右ドラッグによるパンは従来どおり。 |
+| 6-4 [L2] | 完了 | `Geometry::Clamp`（`PtInRect` と同じく、右端と下端を含まない）を追加した。`Document` は、領域内で始まったドラッグだけをコマンドに渡す。その後のドラッグ中と終了時の点は領域内に `Clamp` して渡す（下記）。 |
+| 6-5 [L7] | 完了 | `TRACE` の余分な引数 `methodName` を削除した。 |
+
+**計画からの変更点（6-4）**: 計画どおり `OnDragging` と `OnDragEnd` で `Clamp` するだけだと、領域外で始まったドラッグが領域内に入ったときに、`OnDragStart` を受けていないコマンドへ `OnDragging` と `OnDragEnd` が届く。`SelectCommand` は前回の始点のまま範囲選択をしてしまう。そこで `Document` に `isDragging` を持たせ、ドラッグが領域内で始まった場合だけ、そのドラッグの残りをコマンドに渡すようにした。これまでは、ドラッグ中に領域外へ出ると `OnDraggingAbort` していたが、今後は端で止まったまま続く。
+
+**テスト**: `geometry_test` に `Clamp` のテストを 1 件追加した（合計 71 件）。その他の変更は、ウィンドウやマウス入力に依存するため、手動で確認する。
+
+**ビルドとテスト**:
+- `Debug x86`、`Release x86`、`Release x64` は、リポジトリ内でビルドが成功し、テスト 71 件がすべて成功した。警告はベースラインから増えていない。`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+- `Debug x64` は、リポジトリ内の中間ファイル `Shos.MiniCadSample\x64\Debug\vc145.pdb` への書き込みが C1090 や C1041 で失敗し続けた（Dropbox の同期によるロックと思われる）。そこで、出力先を一時フォルダーにしてビルドし、成功を確認した。テスト 71 件もすべて成功し、`MemoryLeakTest` でもリークはなかった。
+
+- 完了条件の手動確認（実機）: リポジトリ所有者が実施し、すべて問題なかった。確認した項目は次のとおり。
+  - Ctrl+ホイールで、マウスカーソルの位置を中心に拡大縮小する
+  - ダイアログが × ボタンと Esc で隠れ、メニューから再表示できる。Enter では線幅が適用され、閉じない
+  - 選択モードで右クリックしても選択状態が変わらない。右ドラッグによるパンは使える
+  - 領域外まで範囲選択の枠をドラッグして離すと、領域内の図形が選択され、枠が残らない
+  - 線や矩形を領域外までドラッグして描くと、終点が端で止まり、次のクリックで新しい図形を描き始める
+
+### フェーズ 7（2026-11-08 完了）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 使われていないコード（D4） | 完了 | `View` と `Zooming` のコメントアウトされた `OnDragging`、旧名の別名 `CashDevice` を削除した。 |
+| 綴り | 完了 | `Hilight` → `Highlight`、`DrawSelecter` → `DrawSelector`、`maxmum` → `maximum`、`searchinRect` → `searchingRect`。`erace` はすでになかった。 |
+| D1 | 完了 | `View.h` のグローバルな `using namespace` をやめた。基底クラスは `View` 内の別名 `Base` で参照する。`View.cpp` では `using namespace` する（`IMPLEMENT_DYNCREATE` などのマクロが修飾名を扱えないため）。 |
+| D2 | 完了 | 作業用ビットマップをメンバーにした。キャッシュと同じくクライアント領域の大きさで、大きさが変わったときだけ作り直す（キャッシュも同様にした）。Layer 2 はクリップ ボックスでクリッピングする。 |
+| D3 | 完了 | ビットマップを作れなかったときは、背景色で塗りつぶし、Layer 1 と Layer 2 を画面の DC に直接描く。 |
+| D4 | 完了 | `CacheDevice` の前提条件（最初の WM_PAINT の後でしか使えない）をコメントに書き、`ASSERT` で検出する。 |
+| D5 | 完了 | コメントのファイル名を `DoubleBuffer.h` / `DoubleBuffer.cpp` に直した。 |
+| D6 | 完了（方針はリポジトリ所有者が決定） | アプリ本体のクラスを、役割ごとに名前空間に分けた（下記）。 |
+| `override` | 完了 | `Figure`、`Command`、`Document`、`View`、`Application`、`MouseEventTranslator::TestListener` で、オーバーライドしている仮想関数すべてに付けた。 |
+| `DotFigure::radius` | 完了 | `static constexpr long radius = 10L;` にした。 |
+| `Zooming` | 完了 | メンバ初期化子の順序を宣言順に揃えた。 |
+| 乱数 | 完了 | `std::uniform_int_distribution` を使う。`GetRandomFigure` の `default` 分岐は `nullptr` を返し、`GetRandomFigures` で除外する。 |
+| `Geometry::InRect` | 完了 | 右端と下端を含めて判定する。両方の矩形を正規化する。`GetArea` は 1 つ目の矩形も正規化し、ループ変数を `size_t` にした。 |
+| `AddDummyData` | 完了 | トランザクションではなく `append` で、1 回の Undo で取り消せるようにした（全部か無し）。通知用の `Hint` は確定の前に作る。 |
+| README | 完了 | 機能一覧のインデントをスペースに統一した。開発環境（C++20、Visual Studio 2026）、ビルド方法、テストの実行方法を追記した。 |
+
+**D6 の名前空間の構成**: リポジトリ所有者の指示（「Models、Views、Controllers など、適切な namespace に分けたい」）に従った。
+
+| 名前空間 | クラス |
+|---|---|
+| `Shos::MiniCadSample` | `Application` |
+| `Shos::MiniCadSample::Models` | `FigureAttribute`、`Figure` とその派生クラス、`FigureHelper`、`Hint`、`Model` |
+| `Shos::MiniCadSample::Views` | `View`、`MainFrame`、`FigureAttributeDialog`、`Zooming`、`ClipboardHelper` |
+| `Shos::MiniCadSample::Controllers` | `Document`、`MouseEventTranslator`、`Cursor`、`Command` とその派生クラス、`CommandManager` |
+| `Shos::MiniCadSample::Utilities` | `Geometry`、`Observer`、`Observable` |
+| `Shos` | `GdiObjectSelector`（アプリとダブルバッファ ライブラリの両方が使う） |
+| `Shos::MFCDoubleBuffer` | 変更なし（ライブラリ） |
+| `shos` | 変更なし（`undo_redo_vector.h`。STL 風の命名のライブラリ） |
+
+- `Document` は `Controllers` に置いた。MFC では `CDocument` はモデル側だが、このアプリの `Document` は `Model` と `CommandManager` を持ち、マウス イベントをコマンドに振り分ける仲介役である。また `Models` に置くと、`Models` が `Controllers`（`CommandManager`）に依存してしまう。
+- 依存の向きは Views → Controllers → Models → Utilities とした。`using namespace` は名前空間ブロックの中だけで使い、グローバル スコープでは使わない。
+- MFC のマクロ（`IMPLEMENT_SERIAL` など）は修飾されていないクラス名を受け取るため、`.cpp` では名前空間ブロックの中に書いた。
+- ファイルとクリップボードのデータに保存されるクラス名は、修飾されていない名前（`"RectangleFigure"` など）のままである。そのため、ファイル形式は変わらず、以前のバージョンで保存したファイルも読み込める。これを確かめるテストを 1 件追加した。
+- 依存していたインクルードの順序を明示した。`MouseEventTranslator.h` は `Geometry.h` を、`View.h` は `Document.h` を読み込む。
+
+**計画外の修正**:
+- 既存の警告 2 件を解消した。
+  - `DoubleBuffer.h` の C4458: `SetBackgroundColor` の引数名がメンバー名を隠していた。
+  - `Geometry.h` の C4018: `GetArea` のループ変数を `size_t` にした。
+- `SCROLL_VIEW` を有効にする（`ZOOMING_VIEW` を無効にする）とビルドできなかった。以前からの問題で、右ドラッグによるパンのハンドラーが `#ifdef ZOOMING_VIEW` の外で `zooming` を使っていた。ハンドラーを `#ifdef` で囲み、`SCROLL_VIEW` でのビルド（Debug x86）を確かめた。
+
+**テスト**: 3 件追加した（合計 74 件）。
+- `AddDummyData` が 1 回の Undo で取り消せること
+- `InRect` の境界（辺に接する場合、正規化していない矩形）
+- 図形のクラス名が修飾されていないこと（ファイル形式の互換性）
+
+**ビルドとテスト**: 全構成（`Debug` / `Release` × `x86` / `x64`）で、リポジトリ内でビルドが成功した。フェーズ 6 で失敗していた `Debug x64` も成功した。**警告は 0 件**になった。テスト 74 件がすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+
+**追加の変更（リポジトリ所有者の指示）: パンの途中経過の表示**: これまでは、右ドラッグによるパンで表示が動くのは、ボタンを離したときだけだった。ドラッグ中もマウスに追従するようにした（`View::OnDragging` と `Zooming::OnDragging`）。
+- ドラッグ中は表示そのものが動くため、マウスの位置（その時点の座標変換で論理座標にしたもの）を、そのままドラッグ開始時の点と比べることはできない。
+- そこで `Zooming::ShiftTo` は、マウスの位置を現在の座標変換でデバイス座標に戻し、ドラッグ開始時の座標変換で論理座標に変換し直してから、移動量を求める。
+- ドラッグが中断されたとき（ウィンドウの外に出たときなど）は、その位置で止める（元には戻さない）。
+- ビルドとテスト: `Debug x86`、`Release x86`、`Release x64` で成功し、警告なし、テスト 74 件がすべて成功した。`Debug x64` は、リポジトリ内の中間ファイル `vc145.pdb` のロック（C1041）で再びビルドできなかった。
+
+**手動確認（実機）**: リポジトリ所有者が実施し、すべて問題なかった。確認した項目は次のとおり。
+  - 右ドラッグによるパンで、ドラッグ中も表示がマウスに追従する。つかんだ点がマウスの下に留まり、ずれやガタつきがない。
+  - 描画とちらつき（D2 と D3 で描画処理を変えたため）
+  - 範囲選択の枠にぴったり接する図形が選択されること
+  - 「Random」で追加した図形が 1 回の Undo で消えること
+  - 以前のバージョンで保存したファイルを開けること（名前空間の導入後）

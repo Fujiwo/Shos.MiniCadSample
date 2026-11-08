@@ -35,20 +35,43 @@ From Windows, use the same commands with `msbuild` / `vstest.console.exe` in a D
 
 Projects:
 - `Shos.MiniCadSample`: the MFC application (shared-DLL MFC, precompiled header `pch.h`).
-- `Shos.MiniCadSample.Test`: CppUnitTest DLL that covers only `undo_redo_vector.h` (included by relative path, no MFC). It replaces the global `operator new` so that a test can make the N-th allocation throw (the `allocation_failure` scope). Exception-safety tests loop over N until the operation succeeds. `tracked` counts live instances to check ownership.
+- `Shos.MiniCadSample.Test`: CppUnitTest DLL (uses MFC as a shared DLL). Its `pch.h` includes the app's `framework.h`. It compiles the app's `Figure.cpp` and `Geometry.cpp` (without the precompiled header) so it can test `Model` (`ModelTest.cpp`), `FigureAttribute` and `Geometry` (`FigureAttributeAndGeometryTest.cpp`) as well as `undo_redo_vector.h` and `Observer.h` (`Shos.MiniCadSample.Test.cpp`).
+  - The test DLL replaces the global `operator new` so that a test can make the N-th allocation throw (the `allocation_failure` scope in `AllocationFailure.h`). Exception-safety tests loop over N until the operation succeeds. In Debug, the MSVC STL's container-proxy allocations are never failed, because they happen inside `noexcept` constructors.
+  - `tracked` counts live instances to check ownership. `memory_leak_check` (`_CrtMemCheckpoint`, Debug only) checks that a failed `Model::Paste` leaks nothing.
+  - An `ASSERT` or `abort()` in a Debug test shows a dialog and hangs `vstest.console`, so run tests with a `timeout`.
 - `Shos.MiniCadSample.MemoryLeakTest`: console app that runs `undo_redo_vector` scenarios in Debug and reports leaks through the CRT debug heap (`MemoryLeakTest.h` redefines `new`; call `CheckMemoryLeaksStart()` at the top of `main`).
 
 ## Architecture
 
 Most logic lives in headers. The `.cpp` files mostly hold `IMPLEMENT_DYNCREATE`/`IMPLEMENT_SERIAL` and message maps.
 
+**Namespaces** (by role; each file wraps its content in one):
+
+| Namespace | Classes |
+|---|---|
+| `Shos::MiniCadSample` | `Application` |
+| `Shos::MiniCadSample::Models` | `FigureAttribute`, `Figure` and its subclasses, `FigureHelper`, `Hint`, `Model` |
+| `Shos::MiniCadSample::Views` | `View`, `MainFrame`, `FigureAttributeDialog`, `Zooming`, `ClipboardHelper` |
+| `Shos::MiniCadSample::Controllers` | `Document`, `MouseEventTranslator`, `Cursor`, `Command` and its subclasses, `CommandManager` |
+| `Shos::MiniCadSample::Utilities` | `Geometry`, `Observer`, `Observable` |
+| `Shos` | `GdiObjectSelector` (shared by the app and the double-buffer library) |
+| `Shos::MFCDoubleBuffer` | `DoubleBuffer`, `DoubleBufferView`, `DoubleBufferScrollView` (library) |
+| `shos` | `undo_redo_collection` and the rest of `undo_redo_vector.h` (library, STL naming) |
+
+- Dependencies go Views → Controllers → Models → Utilities. Inside a namespace block, a header brings in the namespaces it uses with `using namespace` (e.g. `using namespace Models;` in `Controllers`), never at global scope. `Application.h` qualifies the names instead (`Views::MainFrame`), because a using-directive in the root namespace would reach every child namespace.
+- MFC macros (`IMPLEMENT_SERIAL`, `IMPLEMENT_DYNCREATE`, `BEGIN_MESSAGE_MAP`, `RUNTIME_CLASS`) take unqualified class names, so they are written inside the namespace block in the `.cpp` files (or after a using-directive, as in `Application.cpp`).
+- Files and clipboard data store the unqualified class names (`"RectangleFigure"`), so the namespaces do not change the file format (`figure_class_names_are_unqualified` checks this).
+
 **Model / view separation through the Observer pattern** (`Observer.h`: `Observable<THint>` / `Observer<THint>`):
 - `Model` (`Model.h`) owns the figures in a `shos::undo_redo_pointer_vector<Figure>` and is an `Observable<Hint>`. A `Hint` carries a `Type` (`Added`, `Removed`, `Changed`, `All`, `ViewOnly`) and the affected figures, so views can redraw only what changed.
 - `Document` (`CDocument`) wraps the `Model`, observes it, and forwards to the views. It also owns the `CommandManager` and receives mouse events.
-- `View` derives from `DoubleBufferView` or `DoubleBufferScrollView` (`DoubleBuffer.h`, namespace `Shos::MFCDoubleBuffer`). Drawing has two layers. `OnDrawLayer1` draws the figures into a cached bitmap, which is rebuilt only after `Update()`. `OnDrawLayer2` draws the active command's rubber band and cursor on every `WM_PAINT`. The two layers are combined off-screen and then copied to the screen in one step. `CacheDevice` lets code draw extra content into the cache without rebuilding it, but nothing uses it yet. Which base class `View` uses depends on the `SCROLL_VIEW` / `ZOOMING_VIEW` macros at the top of `View.h`. `MOUSE_EVENT_TRANSLATOR_TEST` in `MouseEventTranslator.h` turns on a debug listener.
-- Figure attributes go both ways through `MainFrame` messages: `Application::Set(...)` pushes the current or selected attribute to the modeless `FigureAttributeDialog`. `Model` is also an `Observer<FigureAttribute>` and receives edits from the dialog, which apply to the selected figures, or become the default for new figures when nothing is selected.
+- Clipboard (`ClipboardHelper.h`, used by `View`): Copy writes the selected figures, or all of them if nothing is selected. It puts three formats on the clipboard: EMF, DIB, and a registered custom format (`Shos.MiniCadSample.Figures`). Cut is Copy followed by `RemoveSelectedFigures`, so it is undoable. Paste calls `Model::Paste`, which is all-or-nothing: it reads into temporary `unique_ptr`s, prepares everything that allocates, then commits with `undo_redo_collection::append` as one undo step. `Model::Serialize` is used only for files; after loading, it clears the undo history.
+- `View` derives from `DoubleBufferView` or `DoubleBufferScrollView` (`DoubleBuffer.h`, namespace `Shos::MFCDoubleBuffer`). Drawing has two layers. `OnDrawLayer1` draws the figures into a cached bitmap, which is rebuilt only after `Update()`. `OnDrawLayer2` draws the active command's rubber band and cursor on every `WM_PAINT`. The two layers are combined off-screen in a work bitmap and then copied to the screen in one step, for the clip box only. The cache and work bitmaps are client-sized members, recreated only when the size changes. If they cannot be created, the view is drawn directly to the screen. `CacheDevice` lets code draw extra content into the cache without rebuilding it (only after the first `WM_PAINT`), but nothing uses it yet. `View.h` names the base class through a member alias `Base`; keep `using namespace Shos::MFCDoubleBuffer` out of headers. Which base class `View` uses depends on the `SCROLL_VIEW` / `ZOOMING_VIEW` macros at the top of `View.h`. `MOUSE_EVENT_TRANSLATOR_TEST` in `MouseEventTranslator.h` turns on a debug listener.
+- Figure attributes go both ways through `MainFrame` messages: `Application::Set(...)` pushes the current or selected attribute to the modeless `FigureAttributeDialog`. `Model` is also an `Observer<FigureAttribute>` and receives edits from the dialog, which apply to the selected figures (one undo step), or to the default for new figures when nothing is selected.
+  - `FigureAttribute` has a valid flag per item (color, pen width). The attribute of a figure is always fully valid; `GetSum` of the selected figures makes an item invalid where they differ (shown blank in the dialog).
+  - The dialog notifies a *change*: `FigureAttribute::Empty()` with only the edited item set. `ApplyTo` overwrites only the valid items, so items the user did not touch (e.g. different pen widths) are kept. Figures that the change does not affect are not replaced.
 
-**Input pipeline**: `View` → `MouseEventTranslator` (turns raw mouse messages into click/cursor/drag start/dragging/abort/end) → `Document` (checks the point is inside the model area) → `CommandManager` → the current `Command`. Commands (`Command.h`) are `SelectCommand` and the `AddFigureCommand` subclasses (Dot, Line, Rectangle, Ellipse). They support both drag input and click input, and draw their own rubber band. Switching tools means `CommandManager::SetCommand(new XxxCommand())`.
+**Input pipeline**: `View` → `MouseEventTranslator` (turns raw mouse messages into click/cursor/drag start/dragging/abort/end) → `Document` (checks the point is inside the model area) → `CommandManager` → the current `Command`. A drag goes to the command only if it starts inside the area; after that, its points are clamped to the area (`Geometry::Clamp`), so the command always gets the drag end. The right button only drags (panning in `View`/`Zooming`); a right click is not a click. Commands (`Command.h`) are `SelectCommand` and the `AddFigureCommand` subclasses (Dot, Line, Rectangle, Ellipse). They support both drag input and click input, and draw their own rubber band. Switching tools means `CommandManager::SetCommand(new XxxCommand())`.
 
 **Figures** (`Figure.h`): `Figure : CObject` is serializable (`IMPLEMENT_SERIAL`) and has `Clone()`. `FigureHelper` makes random figures.
 

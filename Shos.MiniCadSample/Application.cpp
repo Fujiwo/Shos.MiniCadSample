@@ -13,6 +13,11 @@
 #include "View.h"
 #include "resource.h"
 
+namespace Shos::MiniCadSample {
+
+using namespace Controllers;
+using namespace Views;
+
 BEGIN_MESSAGE_MAP(Application, CWinApp)
     ON_COMMAND(ID_FILE_NEW, OnFileNew)
     ON_COMMAND(ID_FILE_OPEN, OnFileOpen)
@@ -39,3 +44,5 @@ BOOL Application::InitInstance()
 }
 
 Application theApp;
+
+} // namespace Shos::MiniCadSample

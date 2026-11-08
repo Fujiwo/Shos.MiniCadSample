@@ -4,12 +4,18 @@
 #include "Command.h"
 #include "MouseEventTranslator.h"
 
+namespace Shos::MiniCadSample::Controllers {
+
+using namespace Models;
+using namespace Utilities;
+
 class Document : public CDocument, public Observer<Hint>, public MouseEventTranslator::Listener
 {
     static const COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
 
     Model          model;
     CommandManager commandManager;
+    bool           isDragging = false; // Whether the current drag started in the area (and so was passed to the command).
 
 public:
     using iterator = Model::iterator;
@@ -38,12 +44,6 @@ public:
     iterator end() const
     {
         return model.end();
-    }
-
-    void Add(Figure* figure)
-    {
-        model.Add(figure);
-        SetModifiedFlag();
     }
 
     void Draw(CDC& dc) const
@@ -80,29 +80,34 @@ public:
             commandManager.OnCursor(point);
     }
 
+    // A drag is passed to the command only if it starts in the area. Once started, it goes on outside the area,
+    // with the point clamped to the area, so that the command always gets the end of the drag
+    // (e.g. a selection rectangle stops at the edge of the area, and is not left on the screen).
     virtual void OnDragStart(UINT keys, CPoint point) override
     {
-        if (IsValid(point))
+        isDragging = IsValid(point);
+        if (isDragging)
             commandManager.OnDragStart(keys, point);
     }
 
     virtual void OnDragging(UINT keys, CPoint point) override
     {
-        if (IsValid(point))
-            commandManager.OnDragging(keys, point);
-        else
-            commandManager.OnDraggingAbort();
+        if (isDragging)
+            commandManager.OnDragging(keys, Geometry::Clamp(point, GetArea()));
     }
 
     virtual void OnDraggingAbort() override
     {
+        isDragging = false;
         commandManager.OnDraggingAbort();
     }
 
     virtual void OnDragEnd(UINT keys, CPoint point) override
     {
-        if (IsValid(point))
-            commandManager.OnDragEnd(keys, point);
+        if (isDragging) {
+            isDragging = false;
+            commandManager.OnDragEnd(keys, Geometry::Clamp(point, GetArea()));
+        }
     }
 
 protected:
@@ -113,12 +118,21 @@ protected:
         UpdateAllViews(nullptr, 0, const_cast<Hint*>(&hint));
     }
 
-    virtual void Serialize(CArchive& ar)
+    virtual void Serialize(CArchive& ar) override
     {
         model.Serialize(ar);
     }
 
-    virtual void DeleteContents()
+public:
+    // Adds the figures on the clipboard (written by Model::StoreFigures) as one undo step. See Model::Paste.
+    void Paste(CArchive& ar)
+    {
+        model.Paste(ar);
+    }
+
+protected:
+
+    virtual void DeleteContents() override
     {
         model.Reset();
         CDocument::DeleteContents();
@@ -225,3 +239,5 @@ private:
     DECLARE_DYNCREATE(Document)
     DECLARE_MESSAGE_MAP()
 };
+
+} // namespace Shos::MiniCadSample::Controllers

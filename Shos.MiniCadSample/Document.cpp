@@ -8,6 +8,8 @@
 #include "Document.h"
 #include "Resource.h"
 
+namespace Shos::MiniCadSample::Controllers {
+
 IMPLEMENT_DYNCREATE(Document, CDocument)
 
 BEGIN_MESSAGE_MAP(Document, CDocument)
@@ -29,3 +31,5 @@ BEGIN_MESSAGE_MAP(Document, CDocument)
     ON_COMMAND(ID_FIGURE_SELECT, OnFigureSelect)
     ON_UPDATE_COMMAND_UI(ID_FIGURE_SELECT, OnUpdateFigureSelect)
 END_MESSAGE_MAP()
+
+} // namespace Shos::MiniCadSample::Controllers

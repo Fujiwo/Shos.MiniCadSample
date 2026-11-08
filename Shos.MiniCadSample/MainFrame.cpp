@@ -8,6 +8,8 @@
 #include "MainFrame.h"
 #include "resource.h"
 
+namespace Shos::MiniCadSample::Views {
+
 IMPLEMENT_DYNCREATE(MainFrame, CFrameWnd)
 
 BEGIN_MESSAGE_MAP(MainFrame, CFrameWnd)
@@ -17,3 +19,5 @@ BEGIN_MESSAGE_MAP(MainFrame, CFrameWnd)
     ON_MESSAGE(WM_SET_FIGURE_ATTRIBUTE, OnSetFigureAttribute)
     ON_MESSAGE(WM_SET_FIGURE_ATTRIBUTE_OBSERVER, OnSetFigureAttributeObserver)
 END_MESSAGE_MAP()
+
+} // namespace Shos::MiniCadSample::Views

@@ -11,24 +11,33 @@
 #include <thread>
 #include <vector>
 #include "../Shos.MiniCadSample/undo_redo_vector.h"
+#include "../Shos.MiniCadSample/Observer.h"
+#include "AllocationFailure.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
+using namespace Shos::MiniCadSample::Utilities;
 
-// ---- Allocation failure injection ----
-//
-// operator new is replaced in this test module so that a test can make the N-th allocation throw std::bad_alloc.
-// Outside an allocation_failure scope it behaves like the default one.
+// ---- Allocation failure injection (see AllocationFailure.h) ----
 
 namespace allocation_failure_injection {
 
-thread_local int countdown = -1; // Number of allocations that still succeed; -1 means "never fail".
+thread_local int countdown = -1;
 
 } // namespace allocation_failure_injection
 
 void* operator new(std::size_t size)
 {
     using namespace allocation_failure_injection;
-    if (countdown >= 0 && countdown-- == 0)
+#if _ITERATOR_DEBUG_LEVEL != 0
+    // In debug builds, the MSVC containers allocate a small "container proxy" for iterator debugging,
+    // even in their noexcept constructors (default and move). Failing that allocation would throw from
+    // a noexcept function and call std::terminate, so it is never failed. This is a property of the
+    // debug STL, not of the code under test (release builds have no proxy).
+    const bool mayFail = size != sizeof(std::_Container_proxy);
+#else // _ITERATOR_DEBUG_LEVEL != 0
+    const bool mayFail = true;
+#endif // _ITERATOR_DEBUG_LEVEL != 0
+    if (mayFail && countdown >= 0 && countdown-- == 0)
         throw std::bad_alloc();
     if (void* pointer = std::malloc(size == 0 ? 1 : size))
         return pointer;
@@ -48,24 +57,6 @@ void operator delete(void* pointer, std::size_t) noexcept
 namespace ShosMiniCadSampleTest
 {
     using namespace shos;
-
-    // Within its lifetime, the allocation after `succeeding` successful ones throws std::bad_alloc (only once).
-    class allocation_failure
-    {
-    public:
-        explicit allocation_failure(int succeeding)
-        {
-            allocation_failure_injection::countdown = succeeding;
-        }
-
-        ~allocation_failure()
-        {
-            allocation_failure_injection::countdown = -1;
-        }
-
-        allocation_failure(const allocation_failure&)            = delete;
-        allocation_failure& operator=(const allocation_failure&) = delete;
-    };
 
     // Counts its live instances, to check that every element is deleted exactly once.
     class tracked
@@ -931,6 +922,103 @@ namespace ShosMiniCadSampleTest
             assert_values({ 100, 200 }, array);
         }
 
+        // ---- append (all or nothing) ----
+
+        TEST_METHOD(append)
+        {
+            undo_redo_vector<int> array;
+            array.push_back(100);
+            array.append({});
+            Assert::IsFalse(array.can_redo());
+            array.append({ 200, 300, 400 });
+            assert_values({ 100, 200, 300, 400 }, array);
+
+            // One undo step.
+            Assert::IsTrue(array.undo());
+            assert_values({ 100 }, array);
+            Assert::IsTrue(array.redo());
+            assert_values({ 100, 200, 300, 400 }, array);
+        }
+
+        TEST_METHOD(append_in_transaction)
+        {
+            undo_redo_vector<int> array;
+            {
+                undo_redo_vector<int>::transaction transaction(array);
+                array.push_back(100);
+                array.append({ 200, 300 });
+                array.push_back(400);
+            }
+            assert_values({ 100, 200, 300, 400 }, array);
+            Assert::IsTrue(array.undo());
+            assert_values({}, array);
+            Assert::IsFalse(array.can_undo());
+        }
+
+        TEST_METHOD(append_failure)
+        {
+            tracked::reset_counters();
+            {
+                undo_redo_pointer_vector<tracked> array;
+                array.push_back(new tracked(100));
+                array.push_back(new tracked(200));
+                Assert::IsTrue(array.undo()); // 200 is held by the redo history.
+
+                int failures = 0;
+                for (int succeeding = 0; ; succeeding++) {
+                    // The vector is made outside the failure scope; its allocation is not what is tested.
+                    std::vector<tracked*> elements = { new tracked(1), new tracked(2), new tracked(3) };
+                    try {
+                        allocation_failure failure(succeeding);
+                        array.append(std::move(elements));
+                    } catch (const std::bad_alloc&) {
+                        failures++;
+                        // Nothing appended, the history is intact, and the 3 elements have been deleted.
+                        assert_values({ 100 }, array);
+                        Assert::IsTrue(array.can_redo());
+                        Assert::AreEqual(2, tracked::live);
+                        continue;
+                    }
+                    break;
+                }
+                Assert::IsTrue(failures > 0);
+                assert_values({ 1, 2, 3 }, values_of_tail(array, 3));
+                Assert::AreEqual<size_t>(4, array.size());
+                Assert::IsFalse(array.can_redo());
+                Assert::AreEqual(4, tracked::live); // 200 was deleted with the redo history.
+
+                Assert::IsTrue(array.undo());
+                assert_values({ 100 }, array);
+            }
+            Assert::AreEqual(0, tracked::live);
+            Assert::AreEqual(tracked::created, tracked::deleted);
+        }
+
+        TEST_METHOD(append_failure_with_list_rolls_back)
+        {
+            // With std::list, each inserted node is allocated while the elements are applied,
+            // so a failure there must undo the nodes inserted so far.
+            undo_redo_collection<int, std::list<int>> array;
+            array.push_back(100);
+
+            int failures = 0;
+            for (int succeeding = 0; ; succeeding++) {
+                try {
+                    allocation_failure failure(succeeding);
+                    array.append({ 1, 2, 3, 4, 5 });
+                } catch (const std::bad_alloc&) {
+                    failures++;
+                    assert_values({ 100 }, array);
+                    continue;
+                }
+                break;
+            }
+            Assert::IsTrue(failures > 5); // Some failures happened while inserting the nodes.
+            assert_values({ 100, 1, 2, 3, 4, 5 }, array);
+            Assert::IsTrue(array.undo());
+            assert_values({ 100 }, array);
+        }
+
         // ---- Performance (N1) ----
 
         TEST_METHOD(many_modifications_are_not_quadratic)
@@ -951,6 +1039,14 @@ namespace ShosMiniCadSampleTest
         }
 
     private:
+        static std::vector<int> values_of_tail(const undo_redo_pointer_vector<tracked>& array, size_t count)
+        {
+            std::vector<int> values;
+            for (size_t index = array.size() - count; index < array.size(); index++)
+                values.push_back(array[index]->get());
+            return values;
+        }
+
         static void assert_values_of_tracked(const std::vector<int>& expected, const undo_redo_vector<tracked*>& array)
         {
             Assert::AreEqual<size_t>(expected.size(), array.size());
@@ -1043,6 +1139,68 @@ namespace ShosMiniCadSampleTest
             for (int undone = 0; undone < thread_count * count; undone++)
                 Assert::IsTrue(array.undo());
             Assert::IsTrue(array.empty());
+        }
+    };
+
+    TEST_CLASS(observable_test)
+    {
+        // Records the hints it receives.
+        class recorder : public Observer<int>
+        {
+        public:
+            std::vector<int> hints;
+
+            void Update(const int& hint) override
+            {
+                hints.push_back(hint);
+            }
+        };
+
+    public:
+        TEST_METHOD(notify)
+        {
+            Observable<int> observable;
+            recorder        first, second;
+            Assert::IsTrue(observable.AddObserver(first));
+            Assert::IsTrue(observable.AddObserver(second));
+
+            observable.NotifyObservers(1);
+            observable.NotifyObservers(2);
+            assert_values({ 1, 2 }, first.hints);
+            assert_values({ 1, 2 }, second.hints);
+        }
+
+        TEST_METHOD(add_same_observer_twice)
+        {
+            Observable<int> observable;
+            recorder        observer;
+            Assert::IsTrue (observable.AddObserver(observer));
+            Assert::IsFalse(observable.AddObserver(observer)); // H2: already registered; ignored.
+
+            observable.NotifyObservers(1);
+            assert_values({ 1 }, observer.hints); // Notified only once.
+        }
+
+        TEST_METHOD(remove_observer)
+        {
+            Observable<int> observable;
+            recorder        first, second, third;
+            observable.AddObserver(first);
+            observable.AddObserver(second);
+            observable.AddObserver(third);
+
+            Assert::IsTrue (observable.RemoveObserver(second));
+            Assert::IsFalse(observable.RemoveObserver(second)); // L5: really removed the first time.
+
+            observable.NotifyObservers(1);
+            assert_values({ 1 }, first.hints);
+            assert_values({},    second.hints);
+            assert_values({ 1 }, third.hints);
+
+            // It can be registered again after being removed.
+            Assert::IsTrue(observable.AddObserver(second));
+            observable.NotifyObservers(2);
+            assert_values({ 2 }, second.hints);
         }
     };
 }

@@ -5,6 +5,11 @@
 #include "Model.h"
 #include "MouseEventTranslator.h"
 
+namespace Shos::MiniCadSample::Controllers {
+
+using namespace Models;
+using namespace Utilities;
+
 class Cursor
 {
 public:
@@ -219,8 +224,8 @@ public:
 protected:
     virtual void OnDraw(CDC& dc) override
     {
-        if (GetModel().Hilight() != nullptr)
-            GetModel().Hilight()->DrawArea(dc);
+        if (GetModel().Highlight() != nullptr)
+            GetModel().Highlight()->DrawArea(dc);
 
         DrawArea(dc);
     }
@@ -240,7 +245,7 @@ protected:
     {
         auto nearestFigure = GetNearestFigure(point, &distanceToFigure);
         hasDistanceToFigure       = (nearestFigure != nullptr);
-        GetModel().Hilight(nearestFigure);
+        GetModel().Highlight(nearestFigure);
     }
     
     virtual void OnDragStart(UINT keys, CPoint point) override
@@ -276,7 +281,7 @@ protected:
         }
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Select");
     }
@@ -289,7 +294,7 @@ protected:
         return message;
     }
 
-    virtual size_t GetMaximumCount() const
+    virtual size_t GetMaximumCount() const override
     {
         return 2UL;
     }
@@ -300,12 +305,12 @@ private:
         auto       minimumDistance = Geometry::maximumDistance;
         Figure*    nearestFigure   = nullptr;
 
-        CRect      searchinRect(point, point);
-        searchinRect.InflateRect(searchingDistance, searchingDistance);
+        CRect      searchingRect(point, point);
+        searchingRect.InflateRect(searchingDistance, searchingDistance);
         
         for (auto figure : GetModel()) {
             CRect rect;
-            if (rect.IntersectRect(figure->GetArea(), searchinRect)) {
+            if (rect.IntersectRect(figure->GetArea(), searchingRect)) {
                 auto figureDistance = figure->GetDistanceFrom(point);
                 if (figureDistance < minimumDistance) {
                     minimumDistance = figureDistance;
@@ -429,7 +434,7 @@ protected:
         return 1;
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Dot");
     }
@@ -465,7 +470,7 @@ protected:
         return 2;
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Line");
     }
@@ -521,7 +526,7 @@ protected:
         return new RectangleFigure(CRect(GetPoint(0), GetPoint(1)));
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Rectangle");
     }
@@ -545,7 +550,7 @@ protected:
         return new EllipseFigure(CRect(GetPoint(0), GetPoint(1)));
     }
 
-    virtual CString GetName() const
+    virtual CString GetName() const override
     {
         return _T("Ellipse");
     }
@@ -633,3 +638,5 @@ private:
         return currentCommand;
     }
 };
+
+} // namespace Shos::MiniCadSample::Controllers

@@ -8,6 +8,10 @@
 #include "Document.h"
 #include "View.h"
 
+namespace Shos::MiniCadSample::Views {
+
+using namespace Shos::MFCDoubleBuffer;
+
 #ifdef SCROLL_VIEW
 IMPLEMENT_DYNCREATE(View, DoubleBufferScrollView)
 #else // SCROLL_VIEW
@@ -20,8 +24,11 @@ BEGIN_MESSAGE_MAP(View, DoubleBufferScrollView)
 BEGIN_MESSAGE_MAP(View, DoubleBufferView)
 #endif // SCROLL_VIEW 
     ON_COMMAND(ID_EDIT_COPY, OnEditCopy)
+    ON_UPDATE_COMMAND_UI(ID_EDIT_COPY, OnUpdateEditCopy)
     ON_COMMAND(ID_EDIT_CUT, OnEditCut)
+    ON_UPDATE_COMMAND_UI(ID_EDIT_CUT, OnUpdateEditCut)
     ON_COMMAND(ID_EDIT_PASTE, OnEditPaste)
+    ON_UPDATE_COMMAND_UI(ID_EDIT_PASTE, OnUpdateEditPaste)
     ON_WM_LBUTTONDOWN()
     ON_WM_LBUTTONUP()
     ON_WM_RBUTTONDOWN()
@@ -31,6 +38,7 @@ BEGIN_MESSAGE_MAP(View, DoubleBufferView)
 #ifdef ZOOMING_VIEW
     ON_WM_MOUSEWHEEL()
 #endif // ZOOMING_VIEW 
-    ON_WM_DESTROYCLIPBOARD()
     ON_WM_KEYDOWN()
 END_MESSAGE_MAP()
+
+} // namespace Shos::MiniCadSample::Views

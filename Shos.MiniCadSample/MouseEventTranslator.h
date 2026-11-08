@@ -5,7 +5,13 @@
 #endif // _DEBUG
 
 #include <afx.h>
+#include <algorithm>
 #include <vector>
+#include "Geometry.h"
+
+namespace Shos::MiniCadSample::Controllers {
+
+using namespace Utilities;
 
 class MouseEventTranslator
 {
@@ -27,12 +33,12 @@ public:
     class TestListener : public MouseEventTranslator::Listener
     {
     public:
-        virtual void OnClick        (CPoint point)            { Trace(_T("OnClick"        ),       point); }
-        virtual void OnCursor       (CPoint point)            { Trace(_T("OnCursor"       ),       point); }
-        virtual void OnDragStart    (UINT keys, CPoint point) { Trace(_T("OnDragStart"    ), keys, point); }
-        virtual void OnDragging     (UINT keys, CPoint point) { Trace(_T("OnDragging"     ), keys, point); }
-        virtual void OnDraggingAbort()                        { Trace(_T("OnDraggingAbort")             ); }
-        virtual void OnDragEnd      (UINT keys, CPoint point) { Trace(_T("OnDragEnd"      ), keys, point); }
+        virtual void OnClick        (CPoint point)            override { Trace(_T("OnClick"        ),       point); }
+        virtual void OnCursor       (CPoint point)            override { Trace(_T("OnCursor"       ),       point); }
+        virtual void OnDragStart    (UINT keys, CPoint point) override { Trace(_T("OnDragStart"    ), keys, point); }
+        virtual void OnDragging     (UINT keys, CPoint point) override { Trace(_T("OnDragging"     ), keys, point); }
+        virtual void OnDraggingAbort()                        override { Trace(_T("OnDraggingAbort")             ); }
+        virtual void OnDragEnd      (UINT keys, CPoint point) override { Trace(_T("OnDragEnd"      ), keys, point); }
 
     private:
         void Trace(LPCTSTR methodName)
@@ -43,7 +49,7 @@ public:
         void Trace(LPCTSTR methodName, CPoint point)
         {
             TraceMethodName(methodName);
-            TRACE(_T("(x: %d, y: %d)\n"), methodName, point.x, point.y);
+            TRACE(_T("(x: %d, y: %d)\n"), point.x, point.y);
         }
 
         void Trace(LPCTSTR methodName, UINT keys, CPoint point)
@@ -77,9 +83,14 @@ public:
     MouseEventTranslator(CView& view) : view(view), isDragging(false)
     {}
 
-    void AddListener(Listener& listener)
+    // Registers listener. Registering the same listener again has no effect, so it never receives an event twice.
+    // Returns false if it was already registered.
+    bool AddListener(Listener& listener)
     {
+        if (std::find(listeners.begin(), listeners.end(), &listener) != listeners.end())
+            return false;
         listeners.push_back(&listener);
+        return true;
     }
 
     void OnLButtonDown(UINT /* keys */, CPoint point)
@@ -103,12 +114,11 @@ public:
         points.push_back(point);
     }
 
+    // The right button is only for dragging (panning); a right click is not a click.
     void OnRButtonUp(UINT /* keys */, CPoint point)
     {
         if (isDragging)
             OnDragEnd(MK_RBUTTON, point);
-        else
-            OnClick(point);
         Clear();
     }
 
@@ -198,3 +208,5 @@ private:
 };
 
 inline MouseEventTranslator::Listener::~Listener() {}
+
+} // namespace Shos::MiniCadSample::Controllers

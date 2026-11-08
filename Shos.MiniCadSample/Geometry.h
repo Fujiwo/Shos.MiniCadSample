@@ -1,7 +1,10 @@
 #pragma once
 
 #include <afx.h>
+#include <algorithm>
 #include <vector>
+
+namespace Shos::MiniCadSample::Utilities {
 
 class Geometry
 {
@@ -103,7 +106,8 @@ public:
             return false;
 
         area = areas[0];
-        for (auto index = 1; index < areas.size(); index++) {
+        area.NormalizeRect();
+        for (size_t index = 1; index < areas.size(); index++) {
             auto eachArea = areas[index];
             eachArea.NormalizeRect();
             area.UnionRect(area, eachArea);
@@ -111,9 +115,23 @@ public:
         return true;
     }
 
-    static bool InRect(const CRect& outer, const CRect& inner)
+    // The nearest point to point in area, where area includes left and top but not right and bottom (as PtInRect).
+    // area must not be empty.
+    static CPoint Clamp(CPoint point, const CRect& area)
     {
-        return outer.PtInRect(inner.TopLeft()) && outer.PtInRect(inner.BottomRight());
+        ASSERT(area.Width() > 0 && area.Height() > 0);
+        return CPoint((std::min)((std::max)(point.x, area.left), area.right  - 1),
+                      (std::min)((std::max)(point.y, area.top ), area.bottom - 1));
+    }
+
+    // Whether inner is inside outer, including the edges of outer (unlike PtInRect, which excludes right and bottom),
+    // so that a figure touching the edge of a selection rectangle is selected.
+    static bool InRect(CRect outer, CRect inner)
+    {
+        outer.NormalizeRect();
+        inner.NormalizeRect();
+        return outer.left <= inner.left && inner.right  <= outer.right &&
+               outer.top  <= inner.top  && inner.bottom <= outer.bottom;
     }
 
     static CRect EnlargeTo(const CRect& rect, CSize size)
@@ -198,3 +216,5 @@ private:
         value = Round(static_cast<double>(base) + (value - base) * rate);
     }
 };
+
+} // namespace Shos::MiniCadSample::Utilities

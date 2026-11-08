@@ -3,6 +3,10 @@
 #include <afx.h>
 #include "Geometry.h"
 
+namespace Shos::MiniCadSample::Views {
+
+using namespace Utilities;
+
 class Zooming
 {
     const CSize minimumSize;
@@ -16,17 +20,23 @@ class Zooming
 
 public:
     Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
-        : window(window), minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), isDragging(false)
+        : minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), window(window), isDragging(false)
     {
         ASSERT_VALID(&window);
     }
 
     void PrepareDC(CDC& dc)
     {
+        PrepareDC(dc, logicalArea);
+    }
+
+    // Maps area (logical coordinates) to the client area.
+    void PrepareDC(CDC& dc, const CRect& area)
+    {
         dc.SetMapMode(MM_ISOTROPIC);
 
-        dc.SetWindowOrg(logicalArea.CenterPoint());
-        dc.SetWindowExt(logicalArea.Size());
+        dc.SetWindowOrg(area.CenterPoint());
+        dc.SetWindowExt(area.Size());
 
         CRect clientRect;
         window.GetClientRect(clientRect);
@@ -34,12 +44,15 @@ public:
         dc.SetViewportExt(clientRect.Size());
     }
 
+    // point: the position of the mouse in screen coordinates (as WM_MOUSEWHEEL gives it).
+    // Zooms with the point under the mouse as the center.
     bool OnMouseWheel(UINT keys, short delta, CPoint point)
     {
         if ((keys & MK_CONTROL) == 0)
             return false;
 
-        DPtoLP(point);
+        window.ScreenToClient(&point);
+        point = DPtoLP(point);
 
         const auto deltaValue     = delta / (double)WHEEL_DELTA;
         const auto denominator    = 10.0;
@@ -49,6 +62,7 @@ public:
         return SetLogicalArea(newLogicalArea);
     }
 
+    // Panning by dragging. The points are in logical coordinates, converted with the mapping at the time of each event.
     void OnDragStart(CPoint point)
     {
         dragStartPoint       = point;
@@ -56,11 +70,13 @@ public:
         isDragging           = true;
     }
 
-    //bool OnDragging(CPoint point)
-    //{
-    //    //return ShiftTo(point);
-    //}
+    // Follows the mouse while dragging. Returns whether the view moved.
+    bool OnDragging(CPoint point)
+    {
+        return ShiftTo(point);
+    }
 
+    // Stops panning where the view is (it is not moved back).
     void OnDraggingAbort()
     {
         isDragging = false;
@@ -68,13 +84,23 @@ public:
 
     bool OnDragEnd(CPoint point)
     {
-        return ShiftTo(point);
+        const auto shifted = ShiftTo(point);
+        isDragging = false;
+        return shifted;
     }
 
+    // Moves the view so that the point where the drag started comes under the mouse.
     bool ShiftTo(CPoint point)
     {
-        auto newLogicalArea = dragStartLogicalArea + (dragStartPoint - point);
-        return isDragging ? ShiftLogicalArea(dragStartLogicalArea + (dragStartPoint - point)) : false;
+        if (!isDragging)
+            return false;
+
+        // point was converted with the current mapping, which has already moved during the drag.
+        // Converts it back to the device (client) coordinates, and then to the logical coordinates at the start of the drag,
+        // where dragStartPoint is.
+        const auto devicePoint      = LPtoDP(point, logicalArea);
+        const auto pointAtDragStart = DPtoLP(devicePoint, dragStartLogicalArea);
+        return ShiftLogicalArea(dragStartLogicalArea + (dragStartPoint - pointAtDragStart));
     }
 
 private:
@@ -103,11 +129,29 @@ private:
 
     CPoint DPtoLP(CPoint point)
     {
+        return DPtoLP(point, logicalArea);
+    }
+
+    // Converts point with the mapping that shows area.
+    CPoint DPtoLP(CPoint point, const CRect& area)
+    {
         ASSERT(window.GetSafeHwnd() != nullptr);
 
         CClientDC dc(&window);
-        PrepareDC(dc);
+        PrepareDC(dc, area);
         dc.DPtoLP(&point);
         return point;
     }
+
+    CPoint LPtoDP(CPoint point, const CRect& area)
+    {
+        ASSERT(window.GetSafeHwnd() != nullptr);
+
+        CClientDC dc(&window);
+        PrepareDC(dc, area);
+        dc.LPtoDP(&point);
+        return point;
+    }
 };
+
+} // namespace Shos::MiniCadSample::Views

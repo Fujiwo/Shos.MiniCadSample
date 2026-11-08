@@ -6,6 +6,10 @@
 #include "GdiObjectSelector.h"
 #include "Geometry.h"
 
+namespace Shos::MiniCadSample::Models {
+
+using namespace Utilities;
+
 class Figure : public CObject
 {
     static const long     selectorSize     = 10L;
@@ -55,15 +59,17 @@ public:
         return new Figure(*this);
     }
 
-    void Draw(CDC& dc) const
+    // Draws the figure. The selection markers are drawn too if it is selected and drawSelector is true
+    // (false for output such as the clipboard).
+    void Draw(CDC& dc, bool drawSelector = true) const
     {
         StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
         CPen                pen(PS_SOLID, attribute.GetPenWidth(), attribute.GetColor());
         GdiObjectSelector   penSelector(dc, pen);
 
         DrawShape(dc);
-        if (isSelected)
-            DrawSelecter(dc);
+        if (isSelected && drawSelector)
+            DrawSelector(dc);
     }
 
     void DrawArea(CDC& dc) const
@@ -109,17 +115,17 @@ protected:
     }
     
 private:
-    void DrawSelecter(CDC& dc) const
+    void DrawSelector(CDC& dc) const
     {
         StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
         CPen                pen(PS_SOLID, selectorPenWidth, selectedColor);
         GdiObjectSelector   penSelector(dc, pen);
 
         auto points = GetPoints();
-        std::for_each(points.begin(), points.end(), [&](const CPoint& point) { DrawSelecter(dc, point); });
+        std::for_each(points.begin(), points.end(), [&](const CPoint& point) { DrawSelector(dc, point); });
     }
 
-    void DrawSelecter(CDC& dc, CPoint point) const
+    void DrawSelector(CDC& dc, CPoint point) const
     {
         CRect rect(point, point);
         rect.InflateRect(selectorSize, selectorSize);
@@ -131,8 +137,8 @@ private:
 
 class DotFigure : public Figure
 {
-    const long radius = 10L;
-    CPoint     position;
+    static constexpr long radius = 10L;
+    CPoint                position;
         
 public:
     DotFigure()
@@ -184,7 +190,7 @@ protected:
         return CRect(position - size, position + size);
     }
 
-    virtual std::vector<CPoint> GetPoints() const
+    virtual std::vector<CPoint> GetPoints() const override
     {
         return { position };
     }
@@ -248,7 +254,7 @@ protected:
         return area;
     }
 
-    virtual std::vector<CPoint> GetPoints() const
+    virtual std::vector<CPoint> GetPoints() const override
     {
         return { start, end };
     }
@@ -296,7 +302,7 @@ protected:
         return position;
     }
 
-    virtual std::vector<CPoint> GetPoints() const
+    virtual std::vector<CPoint> GetPoints() const override
     {
         return Geometry::ToPoints(position);
     }
@@ -383,8 +389,12 @@ public:
     static std::vector<Figure*> GetRandomFigures(size_t count, const CRect& area)
     {
         std::vector<Figure*> figures;
-        for (size_t counter = 0; counter < count; counter++)
-            figures.push_back(GetRandomFigure(area));
+        figures.reserve(count);
+        for (size_t counter = 0; counter < count; counter++) {
+            auto figure = GetRandomFigure(area);
+            if (figure != nullptr)
+                figures.push_back(figure); // Does not throw: the capacity was reserved.
+        }
         return figures;
     }
 
@@ -417,11 +427,10 @@ private:
             figure = new EllipseFigure(CRect(RandomPosition(area), RandomPosition(area)));
             break;
         default:
-            ASSERT(false);
-            figure = nullptr;
-            break;
+            ASSERT(false); // A kind without a case above.
+            return nullptr;
         }
-        figure->Attribute().SetColor   (RandomColor()                         );
+        figure->Attribute().SetColor   (RandomColor()     );
         figure->Attribute().SetPenWidth(RandomValue(0, 5));
         return figure;
     }
@@ -431,13 +440,16 @@ private:
         return CPoint(RandomValue(area.left, area.right), RandomValue(area.top, area.bottom));
     }
 
-    static LONG RandomValue(long minimum, long maxmum)
+    // A uniformly distributed value in [minimum, maximum].
+    static LONG RandomValue(long minimum, long maximum)
     {
-        return minimum + mt() % (maxmum - minimum + 1);
-    };
+        return std::uniform_int_distribution<long>(minimum, maximum)(mt);
+    }
 
     static COLORREF RandomColor()
     {
         return RGB(RandomValue(0, 255), RandomValue(0, 255), RandomValue(0, 255));
     }
 };
+
+} // namespace Shos::MiniCadSample::Models

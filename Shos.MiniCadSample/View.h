@@ -8,18 +8,28 @@
 #include "Zooming.h"
 #endif // ZOOMING_VIEW
 #include "MainFrame.h"
+#include "Document.h"
 #include "MouseEventTranslator.h"
 
-using namespace Shos::MFCDoubleBuffer;
+namespace Shos::MiniCadSample::Views {
 
-class View : public
+using namespace Models;
+using namespace Utilities;
+using namespace Controllers;
+
+// The base class. An alias in View, not "using namespace" here, so that the namespace does not leak
+// into every file that includes this header.
 #ifdef SCROLL_VIEW
-    DoubleBufferScrollView
+#define VIEW_BASE Shos::MFCDoubleBuffer::DoubleBufferScrollView
 #else // SCROLL_VIEW
-    DoubleBufferView
-#endif // SCROLL_VIEW 
-    , public MouseEventTranslator::Listener
+#define VIEW_BASE Shos::MFCDoubleBuffer::DoubleBufferView
+#endif // SCROLL_VIEW
+
+class View : public VIEW_BASE, public MouseEventTranslator::Listener
 {
+    using Base = VIEW_BASE;
+#undef VIEW_BASE
+
 #ifdef ZOOMING_VIEW
     Zooming zooming;
 #endif // ZOOMING_VIEW
@@ -29,6 +39,10 @@ class View : public
     MouseEventTranslator::TestListener testListener;
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
     MouseEventTranslator mouseEventTranslator;
+
+    // OnInitialUpdate runs again on every File > New / Open (the SDI document and view are reused),
+    // so the one-time registrations below are guarded by this flag.
+    bool isInitialized = false;
     
 public:
     View() : mouseEventTranslator(*this)
@@ -49,11 +63,19 @@ protected:
     virtual void OnInitialUpdate() override
     {
 #ifdef SCROLL_VIEW
-        DoubleBufferScrollView::OnInitialUpdate();
+        Base::OnInitialUpdate();
         SetScrollSizes(MM_TEXT, GetDocument().GetSize());
 #endif // SCROLL_VIEW 
 
+        // Shows the attribute of the (new) document in the dialog every time.
         Application::Set(GetDocument().GetCurrentFigureAttribute());
+
+        // The document object is reused by the SDI template, so registering once is enough.
+        // Registering again would deliver every event / attribute change twice.
+        if (isInitialized)
+            return;
+        isInitialized = true;
+
         Application::SetFigureAttributeObserver(GetDocument().GetModel());
 
 #ifdef MOUSE_EVENT_TRANSLATOR_TEST
@@ -66,7 +88,7 @@ protected:
 #ifndef SCROLL_VIEW
     virtual void OnPrepareDC(CDC* dc, CPrintInfo* pInfo = nullptr) override
     {
-        DoubleBufferView::OnPrepareDC(dc, pInfo);
+        Base::OnPrepareDC(dc, pInfo);
         ASSERT_VALID(dc);
 
 #ifdef ZOOMING_VIEW
@@ -97,13 +119,13 @@ protected:
 #endif // ZOOMING_VIEW
 
 #endif // SCROLL_VIEW
-    virtual void OnDrawLayer1(CDC& dc)
+    virtual void OnDrawLayer1(CDC& dc) override
     {
         GetDocument().DrawArea(dc);
         DrawFigures(dc, GetDocument());
     }
 
-    virtual void OnDrawLayer2(CDC& dc)
+    virtual void OnDrawLayer2(CDC& dc) override
     {
         GetDocument().DrawCommand(dc);
     }
@@ -113,12 +135,7 @@ protected:
         Update();
 
         if (pHint == nullptr || static_cast<const Hint*>(pHint)->type == Hint::Type::All || static_cast<const Hint*>(pHint)->type == Hint::Type::ViewOnly) {
-            #ifdef SCROLL_VIEW
-            DoubleBufferScrollView
-            #else // SCROLL_VIEW
-            DoubleBufferView
-            #endif // SCROLL_VIEW 
-                                  ::OnUpdate(pSender, lHint, pHint);
+            Base::OnUpdate(pSender, lHint, pHint);
             return;
         }
 
@@ -132,20 +149,23 @@ protected:
         InvalidateRect(area);
     }
 
+#ifdef ZOOMING_VIEW
+    // Panning by dragging with the right button.
     virtual void OnDragStart(UINT keys, CPoint point) override
     {
         if ((keys & MK_RBUTTON) != 0U)
             zooming.OnDragStart(point);
     }
     
-    //virtual void OnDragging(UINT keys, CPoint point) override
-    //{
-    //    if ((keys & MK_RBUTTON) != 0U && zooming.OnDragging(point)) {
-    //        Update();
-    //        Invalidate();
-    //    }
-    //}
-    
+    // The view follows the mouse while dragging.
+    virtual void OnDragging(UINT keys, CPoint point) override
+    {
+        if ((keys & MK_RBUTTON) != 0U && zooming.OnDragging(point)) {
+            Update();
+            Invalidate();
+        }
+    }
+
     virtual void OnDraggingAbort() override
     {
         zooming.OnDraggingAbort();
@@ -158,20 +178,44 @@ protected:
             Invalidate();
         }
     }
+#endif // ZOOMING_VIEW
 
+    // Copy: the selected figures, or all of them if none is selected.
     afx_msg void OnEditCopy()
     {
-        ClipboardHelper::OnEditCopy(GetDocument(), *this, GetDocument().GetSize(), GetBackgroundColor(), [&](CDC& dc) { GetDocument().Draw(dc); });
+        CopyFigures();
     }
 
+    afx_msg void OnUpdateEditCopy(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(GetDocument().GetModel().IsEmpty() ? 0 : 1);
+    }
+
+    // Cut: copies the selected figures, then deletes them (undoable). Disabled without a selection.
     afx_msg void OnEditCut()
     {
-        ClipboardHelper::OnEditCut(GetDocument(), *this, GetDocument().GetSize(), GetBackgroundColor(), [&](CDC& dc) { GetDocument().Draw(dc); });
+        if (!GetDocument().GetModel().HasSelection())
+            return;
+        if (CopyFigures())
+            GetDocument().RemoveSelectedFigures();
     }
 
+    afx_msg void OnUpdateEditCut(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(GetDocument().GetModel().HasSelection() ? 1 : 0);
+    }
+
+    // Paste: adds the figures on the clipboard as one undo step and selects them.
+    // The model notifies the views, which redraw and set the modified flag.
     afx_msg void OnEditPaste()
     {
-        ClipboardHelper::OnEditPaste(GetDocument(), *this);
+        if (!ClipboardHelper::Paste(*this, [&](CArchive& ar) { GetDocument().Paste(ar); }))
+            ::MessageBeep(MB_ICONWARNING);
+    }
+
+    afx_msg void OnUpdateEditPaste(CCmdUI* cmdUI)
+    {
+        cmdUI->Enable(ClipboardHelper::CanPaste() ? 1 : 0);
     }
 
     afx_msg void OnLButtonDown(UINT keys, CPoint point)
@@ -214,14 +258,9 @@ protected:
             Update();
             Invalidate();
         }
-        return DoubleBufferView::OnMouseWheel(keys, delta, point);
+        return Base::OnMouseWheel(keys, delta, point);
     }
 #endif // ZOOMING_VIEW
-
-    afx_msg void OnDestroyClipboard()
-    {
-        ClipboardHelper::OnDestroyClipboard();
-    }
 
     afx_msg void OnKeyDown(UINT nChar, UINT /* nRepCnt */, UINT /* nFlags */)
     {
@@ -238,6 +277,23 @@ private:
         trackmouseevent.hwndTrack   = GetSafeHwnd();
         trackmouseevent.dwHoverTime = HOVER_DEFAULT;
         ::TrackMouseEvent(&trackmouseevent);
+    }
+
+    // Copies the selected figures, or all of them (with the drawing area) if none is selected.
+    bool CopyFigures()
+    {
+        const auto& model        = GetDocument().GetModel();
+        const bool  selectedOnly = model.HasSelection();
+        // The selected figures are output in their own bounding rectangle; all the figures in the whole document area.
+        const auto  area         = selectedOnly ? model.GetFiguresArea(true) : Document::GetArea();
+
+        return ClipboardHelper::Copy(*this, area, GetBackgroundColor(),
+            [&](CArchive& ar) { model.StoreFigures(ar, selectedOnly); },
+            [&](CDC& dc) {
+                if (!selectedOnly)
+                    GetDocument().DrawArea(dc);
+                model.DrawFigures(dc, selectedOnly);
+            });
     }
 
     static COLORREF GetBackgroundColor()
@@ -283,3 +339,5 @@ private:
     DECLARE_DYNCREATE(View)
     DECLARE_MESSAGE_MAP()
 };
+
+} // namespace Shos::MiniCadSample::Views
