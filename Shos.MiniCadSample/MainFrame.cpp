@@ -1,4 +1,5 @@
-﻿#include "pch.h"
+﻿// The runtime-class and message-map tables of MainFrame (the implementation is in MainFrame.h).
+#include "pch.h"
 #include "framework.h"
 
 #ifdef _DEBUG

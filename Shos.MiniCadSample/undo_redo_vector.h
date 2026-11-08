@@ -251,6 +251,7 @@ private:
         std::vector<std::unique_ptr<undo_step>> steps; // In the order they were applied.
 
     public:
+        // True if no step has been recorded in this group (a transaction then creates no undo step).
         bool empty() const
         {
             return steps.empty();
@@ -284,6 +285,7 @@ private:
             }
         }
 
+        // Appends a step that has already been applied. Never throws if reserve_one_more / reserve was called.
         void push_back(std::unique_ptr<undo_step> step)
         {
             steps.push_back(std::move(step));

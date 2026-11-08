@@ -1,4 +1,10 @@
 ﻿#pragma once
+
+// The view of the document: draws the figures and the active command, turns window messages into
+// mouse events for the controllers, handles clipboard commands, and (optionally) zooms and pans.
+
+// Build options. Define at most one of the two: SCROLL_VIEW derives from the scroll-view base class
+// (scroll bars, no zoom); ZOOMING_VIEW derives from the plain view and zooms/pans with the mouse (see Zooming.h).
 //#define SCROLL_VIEW
 #define ZOOMING_VIEW
 
@@ -25,26 +31,30 @@ using namespace Controllers;
 #define VIEW_BASE Shos::MFCDoubleBuffer::DoubleBufferView
 #endif // SCROLL_VIEW
 
+// Shows a Document. It is also a MouseEventTranslator listener (besides Document), used for panning.
+// Logical coordinates are those of the model; device coordinates are those of the client area.
+// OnPrepareDC sets the mapping between them, so figures are drawn in logical coordinates.
 class View : public VIEW_BASE, public MouseEventTranslator::Listener
 {
     using Base = VIEW_BASE;
 #undef VIEW_BASE
 
 #ifdef ZOOMING_VIEW
-    Zooming zooming;
+    Zooming zooming; // The visible part of the drawing area (zoom and pan).
 #endif // ZOOMING_VIEW
 
 
 #ifdef MOUSE_EVENT_TRANSLATOR_TEST
     MouseEventTranslator::TestListener testListener;
 #endif // MOUSE_EVENT_TRANSLATOR_TEST
-    MouseEventTranslator mouseEventTranslator;
+    MouseEventTranslator mouseEventTranslator; // Converts raw mouse messages into click / drag events.
 
     // OnInitialUpdate runs again on every File > New / Open (the SDI document and view are reused),
     // so the one-time registrations below are guarded by this flag.
     bool isInitialized = false;
     
 public:
+    // The zooming range is the whole document area; it cannot be zoomed in beyond the minimum size.
     View() : mouseEventTranslator(*this)
 #ifdef ZOOMING_VIEW
     , zooming(*this, Document::GetMinimumSize(), Document::GetArea())
@@ -54,6 +64,7 @@ public:
     }
     
 protected:
+    // The document is always a Document (the SDI template creates it).
     Document& GetDocument() const
     {
         ASSERT_VALID(m_pDocument);
@@ -86,6 +97,7 @@ protected:
     }
 
 #ifndef SCROLL_VIEW
+    // Sets the mapping from logical coordinates (model) to device coordinates (client area).
     virtual void OnPrepareDC(CDC* dc, CPrintInfo* pInfo = nullptr) override
     {
         Base::OnPrepareDC(dc, pInfo);
@@ -102,6 +114,7 @@ protected:
 
 #ifndef ZOOMING_VIEW
 #ifndef SCROLL_VIEW
+    // Fixed mapping that fits the whole document area into the client area (no zoom).
     void PrepareDC(CDC& dc)
     {
         dc.SetMapMode(MM_ISOTROPIC);
@@ -119,17 +132,21 @@ protected:
 #endif // ZOOMING_VIEW
 
 #endif // SCROLL_VIEW
+    // Layer 1 (cached): the drawing area and the figures. Rebuilt only after Update().
     virtual void OnDrawLayer1(CDC& dc) override
     {
         GetDocument().DrawArea(dc);
         DrawFigures(dc, GetDocument());
     }
 
+    // Layer 2 (drawn on every WM_PAINT): the rubber band and cursor of the active command.
     virtual void OnDrawLayer2(CDC& dc) override
     {
         GetDocument().DrawCommand(dc);
     }
 
+    // Called when the model changes (through the document). Discards the cached layer 1, and
+    // invalidates only the changed figures' area unless the whole view must be redrawn (hint is null, All or ViewOnly).
     virtual void OnUpdate(CView* pSender, LPARAM lHint, CObject* pHint) override
     {
         Update();
@@ -141,6 +158,7 @@ protected:
         }
 
         CRect area;
+        // The area is in logical coordinates; InvalidateRect needs device coordinates.
         FigureHelper::GetArea(hint->figures, area);
         
         TRACE(_T("View::OnUpdate: area   (top: %d, left: %d, width: %d, height: %d)\n"), area.top, area.left, area.Width(), area.Height());
@@ -167,6 +185,7 @@ protected:
         }
     }
 
+    // Stops panning where the view is.
     virtual void OnDraggingAbort() override
     {
         zooming.OnDraggingAbort();
@@ -219,6 +238,8 @@ protected:
         cmdUI->Enable(ClipboardHelper::CanPaste() ? 1 : 0);
     }
 
+    // Mouse messages are forwarded to the translator, which calls back the listeners
+    // (Document for the commands, and this view for panning).
     afx_msg void OnLButtonDown(UINT keys, CPoint point)
     {
         mouseEventTranslator.OnLButtonDown(keys, point);
@@ -243,9 +264,10 @@ protected:
     {
         TrackMouseLeaveEvent();
         mouseEventTranslator.OnMouseMove(keys, point);
-        Invalidate();
+        Invalidate(); // Redraws layer 2 (the cursor and the rubber band follow the mouse); layer 1 stays cached.
     }
     
+    // WM_MOUSELEAVE: requested by TrackMouseLeaveEvent. Lets the translator hide the cursor and so on.
     afx_msg LRESULT OnMouseLeave(WPARAM /* wParam */, LPARAM /* lParam */)
     {
         mouseEventTranslator.OnMouseLeave();
@@ -253,6 +275,7 @@ protected:
     }
 
 #ifdef ZOOMING_VIEW
+    // Ctrl + wheel zooms around the mouse position (see Zooming::OnMouseWheel).
     afx_msg BOOL OnMouseWheel(UINT keys, short delta, CPoint point)
     {
         if (zooming.OnMouseWheel(keys, delta, point)) {
@@ -263,6 +286,7 @@ protected:
     }
 #endif // ZOOMING_VIEW
 
+    // The Delete key removes the selected figures (undoable).
     afx_msg void OnKeyDown(UINT nChar, UINT /* nRepCnt */, UINT /* nFlags */)
     {
         if (nChar == VK_DELETE)
@@ -270,6 +294,7 @@ protected:
     }
 
 private:
+    // Asks Windows to send WM_MOUSELEAVE once when the mouse leaves the client area (the request is one-shot).
     void TrackMouseLeaveEvent() const
     {
         TRACKMOUSEEVENT trackmouseevent{
@@ -298,11 +323,14 @@ private:
             });
     }
 
+    // Also used as the background of the images put on the clipboard.
     static COLORREF GetBackgroundColor()
     {
         return ::GetSysColor(COLOR_WINDOW);
     }
     
+    // Draws the figures that intersect the clip box of dc (a speed-up for partial redraws).
+    // dc must have the logical-coordinate mapping set, and a clip box.
     void DrawFigures(CDC& dc, const Document& document)
     {
         CRect clipBox;
@@ -317,7 +345,7 @@ private:
             }
         }
         else {
-            ASSERT(false);
+            ASSERT(false); // A clip box is always expected.
             //document.Draw(dc);
         }
     }
@@ -328,6 +356,7 @@ private:
         return intersection.IntersectRect(figure.GetArea(), clipBox);
     }
 
+    // Device (client) to logical coordinates, and the reverse, with the current mapping of this view.
     CPoint DPtoLP(CPoint point)
     {
         return Geometry::DPtoLP(*this, point);

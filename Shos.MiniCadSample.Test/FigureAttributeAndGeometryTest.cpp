@@ -11,6 +11,7 @@ using namespace Shos::MiniCadSample::Utilities;
 
 namespace ShosMiniCadSampleTest
 {
+    // Makes a fully valid attribute with the given color and pen width.
     FigureAttribute make_attribute(COLORREF color, int penWidth)
     {
         FigureAttribute attribute;
@@ -19,6 +20,7 @@ namespace ShosMiniCadSampleTest
         return attribute;
     }
 
+    // Tests of the valid flags, GetSum and ApplyTo of FigureAttribute.
     TEST_CLASS(figure_attribute_test)
     {
     public:
@@ -133,6 +135,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Tests of the distance, clamp and area functions of Geometry (logical coordinates).
     TEST_CLASS(geometry_test)
     {
     public:

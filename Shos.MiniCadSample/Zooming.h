@@ -1,5 +1,8 @@
 #pragma once
 
+// Zooming and panning of a window: keeps the visible part of the drawing area in logical coordinates
+// and maps it to the client area.
+
 #include <afx.h>
 #include "Geometry.h"
 
@@ -7,24 +10,29 @@ namespace Shos::MiniCadSample::Views {
 
 using namespace Utilities;
 
+// The visible part of the drawing area (logicalArea) is always inside maximumArea
+// and at least minimumSize. It is mapped to the whole client area, keeping the aspect ratio (MM_ISOTROPIC).
+// Changing methods return true if the visible area changed, so that the caller knows it must redraw.
 class Zooming
 {
-    const CSize minimumSize;
-    const CRect maximumArea;
-    CRect       logicalArea;
+    const CSize minimumSize;     // The smallest visible size (the largest zoom-in).
+    const CRect maximumArea;     // The whole drawing area (the largest zoom-out).
+    CRect       logicalArea;     // The visible part, in logical coordinates.
     CWnd&       window;
 
     bool        isDragging = false;
-    CPoint      dragStartPoint;
-    CRect       dragStartLogicalArea;
+    CPoint      dragStartPoint;        // Where the drag started, in logical coordinates at that time.
+    CRect       dragStartLogicalArea;  // The visible part when the drag started.
 
 public:
+    // At first the whole maximumArea is visible.
     Zooming(CWnd& window, const CSize& minimumSize, const CRect& maximumArea)
         : minimumSize(minimumSize), maximumArea(maximumArea), logicalArea(maximumArea), window(window)
     {
         ASSERT_VALID(&window);
     }
 
+    // Sets the mapping for the current visible area.
     void PrepareDC(CDC& dc)
     {
         PrepareDC(dc, logicalArea);
@@ -54,6 +62,8 @@ public:
         window.ScreenToClient(&point);
         point = DPtoLP(point);
 
+        // One wheel notch (WHEEL_DELTA) changes the size of the visible area by 10 percent:
+        // zoom in for a positive delta (wheel forward), zoom out for a negative one.
         const auto     deltaValue     = delta / static_cast<double>(WHEEL_DELTA);
         constexpr auto denominator    = 10.0;
         auto           newLogicalArea = logicalArea;
@@ -82,6 +92,7 @@ public:
         isDragging = false;
     }
 
+    // Moves the view to the final position and ends the panning. Returns whether the view moved.
     bool OnDragEnd(CPoint point)
     {
         const auto shifted = ShiftTo(point);
@@ -104,6 +115,7 @@ public:
     }
 
 private:
+    // Moves the visible area (without changing its size), keeping it inside maximumArea.
     bool ShiftLogicalArea(const CRect& area)
     {
         const auto oldLogicalArea = logicalArea;
@@ -115,6 +127,7 @@ private:
         return logicalArea != oldLogicalArea;
     }
 
+    // Sets the visible area, enlarged to at least minimumSize, and moved/clipped into maximumArea.
     bool SetLogicalArea(const CRect& area)
     {
         auto oldLogicalArea = logicalArea;
@@ -127,6 +140,7 @@ private:
         return logicalArea != oldLogicalArea;
     }
 
+    // Device (client) to logical coordinates with the current visible area.
     CPoint DPtoLP(CPoint point)
     {
         return DPtoLP(point, logicalArea);
@@ -143,6 +157,7 @@ private:
         return point;
     }
 
+    // The reverse of DPtoLP(point, area).
     CPoint LPtoDP(CPoint point, const CRect& area)
     {
         ASSERT(window.GetSafeHwnd() != nullptr);

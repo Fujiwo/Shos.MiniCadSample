@@ -1,5 +1,7 @@
 #pragma once
 
+// Clipboard copy / paste of figures, in three formats (see ClipboardHelper).
+
 #include <afx.h>
 #include <exception>
 #include <functional>
@@ -105,6 +107,7 @@ public:
     }
 
 private:
+    // Serializes with store into a new global memory block (movable) and returns it. The caller owns it.
     static HGLOBAL CreateData(const std::function<void(CArchive&)>& store)
     {
         CSharedFile file; // Frees the memory if an exception is thrown before Detach.
@@ -121,6 +124,7 @@ private:
         return file.Detach();
     }
 
+    // Deserializes file with load. Exceptions propagate after the archive is aborted.
     static void Load(CSharedFile& file, const std::function<void(CArchive&)>& load)
     {
         CArchive ar(&file, CArchive::load);
@@ -133,6 +137,7 @@ private:
         }
     }
 
+    // Puts an enhanced metafile (vector image) drawn by draw on the clipboard. Silently does nothing on failure.
     static void CopyMetaFileToClipboard(CWnd& window, std::function<void(CDC&)> draw)
     {
         CClientDC   clientDC(&window);
@@ -147,6 +152,7 @@ private:
             ::DeleteEnhMetaFile(enhancedMetaFileHandle);
     }
 
+    // Creates a 24-bit image of size, filled with color (black is the initial color, so no fill is needed), and draws on it.
     static bool CreateImage(CImage& image, CSize size, std::function<void(CDC&)> draw, COLORREF color = RGB(0x00, 0x00, 0x00))
     {
         if (!image.Create(size.cx, size.cy, 24))
@@ -163,6 +169,8 @@ private:
         return true;
     }
 
+    // Converts image to the CF_DIB layout: a BMP stream without BITMAPFILEHEADER (a DIB is
+    // BITMAPINFOHEADER and the pixels). Returns a global memory block that the caller owns, or nullptr on failure.
     static HGLOBAL ToImageStream(const CImage& image)
     {
         IStream*        stream       = nullptr;
@@ -184,6 +192,7 @@ private:
         result                       = ::IStream_Reset(stream);
         ASSERT(SUCCEEDED(result));
 
+        // Skips the file header: reads it into the buffer and then overwrites it with the rest of the data.
         constexpr ULONG bitmapFileHeaderSize = static_cast<ULONG>(sizeof(BITMAPFILEHEADER));
         const ULONG     actualStreamLength   = streamLength - bitmapFileHeaderSize;
         const HGLOBAL   imageHandle          = ::GlobalAlloc(GHND, actualStreamLength);
@@ -204,6 +213,7 @@ private:
         return imageHandle;
     }
 
+    // Puts a bitmap (CF_DIB) of size drawn by draw on the clipboard. Returns false on failure.
     static bool CopyImageToClipboard(CSize size, COLORREF backgroundColor, std::function<void(CDC&)> draw)
     {
         CImage image;

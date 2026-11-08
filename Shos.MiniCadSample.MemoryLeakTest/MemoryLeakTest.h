@@ -32,6 +32,9 @@ int Sub()
 
 #pragma once
 
+// Makes the CRT debug heap record the file and line of every new, so that leak reports show where the block came from.
+// Include it in every source file (Debug builds only; in Release it expands to plain new).
+
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
@@ -49,7 +52,7 @@ int Sub()
 
 #define new DEBUG_NEW
 
-// call at begining of the application
+// Call at the beginning of main(): makes the CRT dump leaks automatically when the program exits.
 inline void CheckMemoryLeaksStart()
 {
 #ifdef _DEBUG

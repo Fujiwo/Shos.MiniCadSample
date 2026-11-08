@@ -1,5 +1,7 @@
 #pragma once
 
+// FigureAttribute: the color and pen width of a figure, with per-item validity (see the class comment).
+
 #include <afx.h>
 #include <ranges>
 #include <vector>
@@ -14,9 +16,9 @@ namespace Shos::MiniCadSample::Models {
 // - A change (Empty() plus SetColor / SetPenWidth) has only the changed items valid; ApplyTo overwrites only those.
 class FigureAttribute
 {
-    COLORREF color           = RGB(0x00, 0x00, 0x00);
+    COLORREF color           = RGB(0x00, 0x00, 0x00); // Meaningful only if isColorValid.
     bool     isColorValid    = true;
-    int      penWidth        = 0;
+    int      penWidth        = 0; // Meaningful only if isPenWidthValid. In logical units.
     bool     isPenWidthValid = true;
 
 public:
@@ -28,6 +30,8 @@ public:
         return attribute;
     }
 
+    // Merges attributes: an item stays valid only if all the attributes have the same value for it.
+    // Returns Empty() for no attributes.
     static FigureAttribute GetSum(const std::vector<FigureAttribute>& attributes)
     {
         if (attributes.empty())
@@ -83,6 +87,7 @@ public:
         return true;
     }
 
+    // Whether no item is valid (no change at all).
     bool IsEmpty() const
     {
         return !isColorValid && !isPenWidthValid;
@@ -101,6 +106,7 @@ public:
 
     FigureAttribute() = default;
 
+    // Stores / loads the values only. The valid flags are not stored: a stored attribute is always fully valid.
     void Serialize(CArchive& ar)
     {
         if (ar.IsStoring())

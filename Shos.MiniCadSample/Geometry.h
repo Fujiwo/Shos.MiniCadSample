@@ -1,5 +1,8 @@
 #pragma once
 
+// Geometry: static helpers for distances, rectangles and logical/device coordinate conversion.
+// Distances and coordinates are logical units unless a function says otherwise.
+
 #include <afx.h>
 #include <algorithm>
 #include <cmath>
@@ -10,9 +13,11 @@
 
 namespace Shos::MiniCadSample::Utilities {
 
+// A static-only utility class.
 class Geometry
 {
 public:
+    // The distance that means "very far" (also the starting value when searching for a minimum).
     static constexpr long maximumDistance = (std::numeric_limits<long>::max)(); // (...) avoids the max macro of <windows.h>.
 
     template <typename T>
@@ -22,27 +27,32 @@ public:
         return x * x;
     }
     
+    // Rounds to the nearest integer (halves go up).
     static long Round(double x)
     {
         return static_cast<long>(std::floor(x + 0.5));
     }
     
-    // absolute value
+    // The length of the vector from the origin to point (rounded).
     static long Abs(CPoint point)
     {
         return Round(std::sqrt(Square(static_cast<double>(point.x)) + Square(static_cast<double>(point.y))));
     }
     
+    // The length of the vector size (rounded).
     static long Abs(CSize size)
     {
         return Round(std::sqrt(Square(static_cast<double>(size.cx)) + Square(static_cast<double>(size.cy))));
     }
 
+    // The distance between two points.
     static long GetDistance(CPoint point1, CPoint point2)
     {
         return Abs(point2 - point1);
     }
     
+    // The distance from point to the segment start-end (to the nearer end point if the foot of the
+    // perpendicular is outside the segment). A zero-length segment is treated as a point.
     static long GetDistanceToLineSegment(CPoint point, CPoint start, CPoint end)
     {
         auto d  = end   - start;
@@ -53,6 +63,8 @@ public:
         auto d1 = start - point;
         auto d2 = end   - point;
 
+        // Signs of the projections of the end points on the segment: f0 > 0 means point lies before start,
+        // f1 < 0 means it lies after end; otherwise the foot of the perpendicular is on the segment.
         auto f0 = Mul(d, d1);
         auto f1 = Mul(d, d2);
 
@@ -60,6 +72,7 @@ public:
             : (f1 < 0 ? Abs(d2) : std::abs(d.cy * d1.cx - d.cx * d1.cy) / length);
     }
 
+    // The distance from point to the outline (the four edges) of rect, not to its inside.
     static long GetDistance(CPoint point, const CRect& rect)
     {
         auto points = ToPoints(rect);
@@ -73,6 +86,10 @@ public:
         return distance;
     }
 
+    // The approximate distance from point to the outline of the ellipse inscribed in rect.
+    // The plane is scaled so that the ellipse becomes a circle, the distance to the circle is taken, and
+    // it is scaled back. This is exact on the axes and approximate elsewhere.
+    // A degenerate (zero width or height) ellipse is a line segment.
     static long GetDistanceToEllipse(CPoint point, const CRect& rect)
     {
         if (rect.Width() == 0 || rect.Height() == 0)
@@ -89,7 +106,7 @@ public:
         return distance;
     }
 
-    // inner product
+    // The inner (dot) product.
     static long Mul(CPoint point1, CPoint point2)
     {
         return point1.x * point2.x + point1.y * point2.y;
@@ -100,11 +117,13 @@ public:
         return size1.cx * size2.cx + size1.cy * size2.cy;
     }
 
+    // The corners of rect in order: top left, top right, bottom right, bottom left.
     static std::vector<CPoint> ToPoints(const CRect& rect)
     {
         return { rect.TopLeft(), CPoint(rect.right, rect.top), rect.BottomRight(), CPoint(rect.left, rect.bottom) };
     }
     
+    // Sets area to the union of the (normalized) rectangles. Returns false (area untouched) if there are none.
     static bool GetArea(const std::vector<CRect>& areas, CRect& area)
     {
         if (areas.empty())
@@ -138,6 +157,7 @@ public:
                outer.top  <= inner.top  && inner.bottom <= outer.bottom;
     }
 
+    // Inflates rect equally on all sides until it is at least size wide and high. Returns rect if it already is.
     static CRect EnlargeTo(const CRect& rect, CSize size)
     {
         auto d = (std::max)(size.cx - rect.Width(), size.cy - rect.Height());
@@ -153,6 +173,8 @@ public:
         return newRect;
     }
 
+    // Moves area (without resizing it) so that it lies inside maximumArea, as far as it fits.
+    // The right and bottom edges are fixed first, then the left and top (so the latter win if area is too big).
     static CRect ShiftInto(const CRect& area, const CRect& maximumArea)
     {
         ASSERT(area.Width () > 0);
@@ -176,6 +198,8 @@ public:
         return newArea;
     }
 
+    // Converts a point from device (client) to logical coordinates, using the view's current mapping
+    // (zoom and scroll position, as set up by OnPrepareDC).
     static CPoint DPtoLP(CView& view, CPoint point)
     {
         CClientDC dc(&view);
@@ -184,6 +208,7 @@ public:
         return point;
     }
 
+    // Converts a rectangle from logical to device (client) coordinates, using the view's current mapping.
     static CRect LPtoDP(CView& view, CRect rect)
     {
         CClientDC dc(&view);
@@ -192,6 +217,7 @@ public:
         return rect;
     }
 
+    // Converts a length (not a position) between device and logical units with the mapping of dc.
     static int DPtoLP(CDC& dc, int size)
     {
         CRect rect(0, 0, size, size);
@@ -206,6 +232,7 @@ public:
         return rect.Width();
     }
 
+    // Scales rect by rate around basePoint (basePoint stays fixed). Used for zooming.
     static void Enlarge(CRect& rect, CPoint basePoint, double rate)
     {
         Enlarge(rect.left  , basePoint.x, rate);
@@ -215,6 +242,7 @@ public:
     }
     
 private:
+    // Scales the distance of value from base by rate.
     static void Enlarge(long& value, long base, double rate)
     {
         value = Round(static_cast<double>(base) + (value - base) * rate);

@@ -1,3 +1,5 @@
+// Tests of undo_redo_vector.h (undo / redo collections, transactions, exception safety) and Observer.h.
+
 #include "pch.h"
 #include "CppUnitTest.h"
 #include <chrono>
@@ -25,6 +27,8 @@ thread_local int countdown = -1;
 
 } // namespace allocation_failure_injection
 
+// Replaces the global operator new of this test module. Within an allocation_failure scope, the allocation
+// after the allowed number of successful ones throws std::bad_alloc once; otherwise it is plain malloc.
 void* operator new(std::size_t size)
 {
     using namespace allocation_failure_injection;
@@ -44,6 +48,7 @@ void* operator new(std::size_t size)
     throw std::bad_alloc();
 }
 
+// Matches the replaced operator new (malloc / free).
 void operator delete(void* pointer) noexcept
 {
     std::free(pointer);
@@ -94,6 +99,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Copies the elements of a collection of ints (or int-convertible values) into a vector, for comparison.
     template <typename TCollection>
     std::vector<int> values_of(const TCollection& collection)
     {
@@ -103,6 +109,7 @@ namespace ShosMiniCadSampleTest
         return values;
     }
 
+    // The same for a collection of owned tracked pointers: copies the values they hold.
     std::vector<int> values_of(const undo_redo_pointer_vector<tracked>& collection)
     {
         std::vector<int> values;
@@ -111,6 +118,7 @@ namespace ShosMiniCadSampleTest
         return values;
     }
 
+    // Asserts that the collection holds exactly the expected values, in order.
     template <typename TCollection>
     void assert_values(const std::vector<int>& expected, const TCollection& collection)
     {
@@ -120,6 +128,7 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual<int>(expected[index], actual[index], (L"index " + std::to_wstring(index)).c_str());
     }
 
+    // Sanity checks of the standard containers that the other tests rely on.
     TEST_CLASS(standard_container_test)
     {
     public:
@@ -144,6 +153,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Tests of undo_redo_vector, undo_redo_pointer_vector and their transaction.
     TEST_CLASS(undo_redo_vector_test)
     {
     public:
@@ -1055,6 +1065,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Tests of the thread-safe wrapper synchronized_undo_redo_vector.
     TEST_CLASS(synchronized_undo_redo_vector_test)
     {
     public:
@@ -1142,6 +1153,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Tests of Observable / Observer: registration, notification and removal of observers.
     TEST_CLASS(observable_test)
     {
         // Records the hints it receives.

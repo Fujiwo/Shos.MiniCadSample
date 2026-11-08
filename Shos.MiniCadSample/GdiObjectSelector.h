@@ -1,9 +1,13 @@
 #pragma once
 
+// RAII helpers that select a GDI object into a device context and restore the previous one at scope exit.
+
 #include <afx.h>
 
 namespace Shos {
 
+// Common part: restores the object that was selected before. Not copyable.
+// The selected object must outlive the selector's scope (it is deselected, not deleted, here).
 class GdiObjectSelectorBase
 {
     CDC&              dc;
@@ -22,6 +26,7 @@ public:
     GdiObjectSelectorBase& operator=(const GdiObjectSelectorBase&) = delete;
 };
 
+// Selects a stock object (e.g. NULL_BRUSH, the index of GetStockObject) into dc.
 class StockObjectSelector : public GdiObjectSelectorBase
 {
 public:
@@ -29,6 +34,7 @@ public:
     {}
 };
 
+// Selects gdiObject (a pen, brush, font and so on) into dc.
 class GdiObjectSelector : public GdiObjectSelectorBase
 {
 public:

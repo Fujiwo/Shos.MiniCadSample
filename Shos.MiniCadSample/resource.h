@@ -1,6 +1,6 @@
 ﻿//{{NO_DEPENDENCIES}}
-// Microsoft Visual C++ で生成されたインクルード ファイル。
-// ShosMiniCadSample.rc で使用
+// Microsoft Visual C++ generated include file.
+// Used by ShosMiniCadSample.rc
 //
 #define IDR_MAINFRAME                   128
 #define IDR_ShosMiniCadSampleTYPE       130

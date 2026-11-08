@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+// The modeless dialog to show and edit the figure attribute (color and pen width).
+
 #include "afxdialogex.h"
 #include "FigureAttribute.h"
 
@@ -15,22 +17,26 @@ using namespace Utilities;
 class FigureAttributeDialog : public CDialogEx, public Observable<FigureAttribute>
 {
     FigureAttribute figureAttribute; // What the dialog shows. An invalid item is shown blank.
-    CMFCColorButton colorButton;
+    CMFCColorButton colorButton; // The color picker (control IDC_COLOR_BUTTON).
     
 public:
     FigureAttributeDialog()
     {}
 
+    // Shows newFigureAttribute (does not notify the observers: this is not a user's change).
     void Set(const FigureAttribute& newFigureAttribute)
     {
         figureAttribute = newFigureAttribute;
         UpdateData(false);
     }
 
+    // Creates the dialog as a modeless child of parentWindow and shows it. Returns false on failure.
     bool Create(CWnd& parentWindow);
 
 protected:
+    // Only loads (model to controls). Reading controls is done item by item in OnCommand.
     virtual void DoDataExchange(CDataExchange* pDX) override;
+    // Reacts to the color button and the pen width button.
     virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam) override;
 
     // Enter: applies the pen width. The modeless dialog must not be ended (EndDialog) by CDialog::OnOK.
@@ -56,6 +62,7 @@ private:
             NotifyObservers(change);
     }
 
+    // Reads the color from the control, and notifies it as a change.
     void SaveColor()
     {
         auto change = FigureAttribute::Empty();
@@ -63,14 +70,17 @@ private:
         Notify(change);
     }
 
+    // Reads the pen width from the edit box, and notifies it as a change (does nothing if blank or invalid).
     void SavePenWidth();
 
+    // Copies figureAttribute to the controls.
     void Load(CDataExchange* pDX)
     {
         LoadColor();
         LoadPenWidth(pDX);
     }
 
+    // An invalid (mixed) color is shown as the automatic color.
     void LoadColor()
     {
         if (figureAttribute.IsColorValid())
@@ -79,6 +89,7 @@ private:
             colorButton.SetColor(colorButton.GetAutomaticColor());
     }
 
+    // An invalid (mixed) pen width is shown blank.
     void LoadPenWidth(CDataExchange* pDX);
 
 #ifdef AFX_DESIGN_TIME

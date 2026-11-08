@@ -1,5 +1,5 @@
-﻿// DoubleBuffer.cpp : 実行時クラス情報とメッセージ マップの定義
-// クラスの実装はすべて DoubleBuffer.h にある
+﻿// DoubleBuffer.cpp : Definitions of the runtime class information and message maps.
+// All class implementations are in DoubleBuffer.h.
 
 #include "pch.h"
 #include "framework.h"
@@ -11,8 +11,8 @@
 
 namespace Shos::MFCDoubleBuffer {
 
-// DoubleBufferViewBase はテンプレートで、メッセージ マップを持てないため、
-// 共通のハンドラー (OnPaint / OnEraseBkgnd / OnSize) を、それぞれの派生クラスのマップに登録している
+// DoubleBufferViewBase is a template and cannot have a message map, so the common handlers
+// (OnPaint / OnEraseBkgnd / OnSize) are registered in the map of each derived class.
 
 IMPLEMENT_DYNCREATE(DoubleBufferView, DoubleBufferViewBase<CView>)
 
@@ -24,7 +24,7 @@ END_MESSAGE_MAP()
 
 IMPLEMENT_DYNCREATE(DoubleBufferScrollView, DoubleBufferViewBase<CScrollView>)
 
-// スクロールの処理は OnScrollBy (仮想関数) で行うので、WM_HSCROLL などの登録は不要
+// Scrolling is handled by OnScrollBy (a virtual function), so WM_HSCROLL and similar need not be registered.
 BEGIN_MESSAGE_MAP(DoubleBufferScrollView, DoubleBufferViewBase<CScrollView>)
     ON_WM_PAINT()
     ON_WM_ERASEBKGND()
