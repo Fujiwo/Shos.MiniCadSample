@@ -142,6 +142,8 @@ protected:
         InvalidateRect(area);
     }
 
+#ifdef ZOOMING_VIEW
+    // Panning by dragging with the right button.
     virtual void OnDragStart(UINT keys, CPoint point) override
     {
         if ((keys & MK_RBUTTON) != 0U)
@@ -160,6 +162,7 @@ protected:
             Invalidate();
         }
     }
+#endif // ZOOMING_VIEW
 
     // Copy: the selected figures, or all of them if none is selected.
     afx_msg void OnEditCopy()
