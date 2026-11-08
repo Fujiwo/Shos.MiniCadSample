@@ -327,6 +327,24 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual<size_t>(1, areas_of(model).size());
         }
 
+        TEST_METHOD(dummy_data_is_one_undo_step)
+        {
+            Model model;
+            model.Add(new DotFigure(CPoint(10, 10)));
+            model.AddDummyData(10);
+            Assert::AreEqual<size_t>(11, areas_of(model).size());
+
+            for (auto figure : model) {
+                const auto penWidth = figure->Attribute().GetPenWidth();
+                Assert::IsTrue(0 <= penWidth && penWidth <= 5);
+            }
+
+            model.Undo();
+            Assert::AreEqual<size_t>(1, areas_of(model).size());
+            model.Redo();
+            Assert::AreEqual<size_t>(11, areas_of(model).size());
+        }
+
         // H3: changing the color of figures with different pen widths keeps each pen width.
         TEST_METHOD(attribute_change_applies_only_changed_item)
         {

@@ -305,12 +305,21 @@ public:
         SetSelectedFigureAttribute();
     }
 
+    // Adds count random figures as one undo step.
     void AddDummyData(size_t count)
     {
         auto newFigures = FigureHelper::GetRandomFigures(count, GetArea());
-        std::for_each(newFigures.cbegin(), newFigures.cend(), [&](Figure* figure) { figures.push_back(figure); });
+        std::unique_ptr<Hint> hint;
+        try {
+            hint = std::make_unique<Hint>(Hint::Type::Added, newFigures); // Prepared before the commit, which takes newFigures.
+        } catch (...) {
+            for (auto figure : newFigures)
+                delete figure;
+            throw;
+        }
+        figures.append(std::move(newFigures)); // All or nothing; on failure, the figures are deleted.
         InvalidateHighlight();
-        NotifyObservers(Hint(Hint::Type::Added, newFigures));
+        NotifyObservers(*hint);
     }
 
 private:
