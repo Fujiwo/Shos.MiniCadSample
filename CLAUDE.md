@@ -45,6 +45,23 @@ Projects:
 
 Most logic lives in headers. The `.cpp` files mostly hold `IMPLEMENT_DYNCREATE`/`IMPLEMENT_SERIAL` and message maps.
 
+**Namespaces** (by role; each file wraps its content in one):
+
+| Namespace | Classes |
+|---|---|
+| `Shos::MiniCadSample` | `Application` |
+| `Shos::MiniCadSample::Models` | `FigureAttribute`, `Figure` and its subclasses, `FigureHelper`, `Hint`, `Model` |
+| `Shos::MiniCadSample::Views` | `View`, `MainFrame`, `FigureAttributeDialog`, `Zooming`, `ClipboardHelper` |
+| `Shos::MiniCadSample::Controllers` | `Document`, `MouseEventTranslator`, `Cursor`, `Command` and its subclasses, `CommandManager` |
+| `Shos::MiniCadSample::Utilities` | `Geometry`, `Observer`, `Observable` |
+| `Shos` | `GdiObjectSelector` (shared by the app and the double-buffer library) |
+| `Shos::MFCDoubleBuffer` | `DoubleBuffer`, `DoubleBufferView`, `DoubleBufferScrollView` (library) |
+| `shos` | `undo_redo_collection` and the rest of `undo_redo_vector.h` (library, STL naming) |
+
+- Dependencies go Views → Controllers → Models → Utilities. Inside a namespace block, a header brings in the namespaces it uses with `using namespace` (e.g. `using namespace Models;` in `Controllers`), never at global scope. `Application.h` qualifies the names instead (`Views::MainFrame`), because a using-directive in the root namespace would reach every child namespace.
+- MFC macros (`IMPLEMENT_SERIAL`, `IMPLEMENT_DYNCREATE`, `BEGIN_MESSAGE_MAP`, `RUNTIME_CLASS`) take unqualified class names, so they are written inside the namespace block in the `.cpp` files (or after a using-directive, as in `Application.cpp`).
+- Files and clipboard data store the unqualified class names (`"RectangleFigure"`), so the namespaces do not change the file format (`figure_class_names_are_unqualified` checks this).
+
 **Model / view separation through the Observer pattern** (`Observer.h`: `Observable<THint>` / `Observer<THint>`):
 - `Model` (`Model.h`) owns the figures in a `shos::undo_redo_pointer_vector<Figure>` and is an `Observable<Hint>`. A `Hint` carries a `Type` (`Added`, `Removed`, `Changed`, `All`, `ViewOnly`) and the affected figures, so views can redraw only what changed.
 - `Document` (`CDocument`) wraps the `Model`, observes it, and forwards to the views. It also owns the `CommandManager` and receives mouse events.

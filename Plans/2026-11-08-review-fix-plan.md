@@ -595,7 +595,7 @@ point = DPtoLP(point);
   - 領域外まで範囲選択の枠をドラッグして離すと、領域内の図形が選択され、枠が残らない
   - 線や矩形を領域外までドラッグして描くと、終点が端で止まり、次のクリックで新しい図形を描き始める
 
-### フェーズ 7（2026-11-08 実施。D6 は未決定。手動確認は未実施）
+### フェーズ 7（2026-11-08 実施。手動確認は未実施）
 
 | 項目 | 状態 | 内容 |
 |---|---|---|
@@ -606,7 +606,7 @@ point = DPtoLP(point);
 | D3 | 完了 | ビットマップを作れなかったときは、背景色で塗りつぶし、Layer 1 と Layer 2 を画面の DC に直接描く。 |
 | D4 | 完了 | `CacheDevice` の前提条件（最初の WM_PAINT の後でしか使えない）をコメントに書き、`ASSERT` で検出する。 |
 | D5 | 完了 | コメントのファイル名を `DoubleBuffer.h` / `DoubleBuffer.cpp` に直した。 |
-| D6 | **未決定** | 名前空間の命名の統一は、リポジトリ所有者の判断を待つ。 |
+| D6 | 完了（方針はリポジトリ所有者が決定） | アプリ本体のクラスを、役割ごとに名前空間に分けた（下記）。 |
 | `override` | 完了 | `Figure`、`Command`、`Document`、`View`、`Application`、`MouseEventTranslator::TestListener` で、オーバーライドしている仮想関数すべてに付けた。 |
 | `DotFigure::radius` | 完了 | `static constexpr long radius = 10L;` にした。 |
 | `Zooming` | 完了 | メンバ初期化子の順序を宣言順に揃えた。 |
@@ -615,21 +615,41 @@ point = DPtoLP(point);
 | `AddDummyData` | 完了 | トランザクションではなく `append` で、1 回の Undo で取り消せるようにした（全部か無し）。通知用の `Hint` は確定の前に作る。 |
 | README | 完了 | 機能一覧のインデントをスペースに統一した。開発環境（C++20、Visual Studio 2026）、ビルド方法、テストの実行方法を追記した。 |
 
+**D6 の名前空間の構成**: リポジトリ所有者の指示（「Models、Views、Controllers など、適切な namespace に分けたい」）に従った。
+
+| 名前空間 | クラス |
+|---|---|
+| `Shos::MiniCadSample` | `Application` |
+| `Shos::MiniCadSample::Models` | `FigureAttribute`、`Figure` とその派生クラス、`FigureHelper`、`Hint`、`Model` |
+| `Shos::MiniCadSample::Views` | `View`、`MainFrame`、`FigureAttributeDialog`、`Zooming`、`ClipboardHelper` |
+| `Shos::MiniCadSample::Controllers` | `Document`、`MouseEventTranslator`、`Cursor`、`Command` とその派生クラス、`CommandManager` |
+| `Shos::MiniCadSample::Utilities` | `Geometry`、`Observer`、`Observable` |
+| `Shos` | `GdiObjectSelector`（アプリとダブルバッファ ライブラリの両方が使う） |
+| `Shos::MFCDoubleBuffer` | 変更なし（ライブラリ） |
+| `shos` | 変更なし（`undo_redo_vector.h`。STL 風の命名のライブラリ） |
+
+- `Document` は `Controllers` に置いた。MFC では `CDocument` はモデル側だが、このアプリの `Document` は `Model` と `CommandManager` を持ち、マウス イベントをコマンドに振り分ける仲介役である。また `Models` に置くと、`Models` が `Controllers`（`CommandManager`）に依存してしまう。
+- 依存の向きは Views → Controllers → Models → Utilities とした。`using namespace` は名前空間ブロックの中だけで使い、グローバル スコープでは使わない。
+- MFC のマクロ（`IMPLEMENT_SERIAL` など）は修飾されていないクラス名を受け取るため、`.cpp` では名前空間ブロックの中に書いた。
+- ファイルとクリップボードのデータに保存されるクラス名は、修飾されていない名前（`"RectangleFigure"` など）のままである。そのため、ファイル形式は変わらず、以前のバージョンで保存したファイルも読み込める。これを確かめるテストを 1 件追加した。
+- 依存していたインクルードの順序を明示した。`MouseEventTranslator.h` は `Geometry.h` を、`View.h` は `Document.h` を読み込む。
+
 **計画外の修正**:
 - 既存の警告 2 件を解消した。
   - `DoubleBuffer.h` の C4458: `SetBackgroundColor` の引数名がメンバー名を隠していた。
   - `Geometry.h` の C4018: `GetArea` のループ変数を `size_t` にした。
 - `SCROLL_VIEW` を有効にする（`ZOOMING_VIEW` を無効にする）とビルドできなかった。以前からの問題で、右ドラッグによるパンのハンドラーが `#ifdef ZOOMING_VIEW` の外で `zooming` を使っていた。ハンドラーを `#ifdef` で囲み、`SCROLL_VIEW` でのビルド（Debug x86）を確かめた。
 
-**テスト**: 2 件追加した（合計 73 件）。
+**テスト**: 3 件追加した（合計 74 件）。
 - `AddDummyData` が 1 回の Undo で取り消せること
 - `InRect` の境界（辺に接する場合、正規化していない矩形）
+- 図形のクラス名が修飾されていないこと（ファイル形式の互換性）
 
-**ビルドとテスト**: 全構成（`Debug` / `Release` × `x86` / `x64`）で、リポジトリ内でビルドが成功した。フェーズ 6 で失敗していた `Debug x64` も成功した。**警告は 0 件**になった。テスト 73 件がすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+**ビルドとテスト**: 全構成（`Debug` / `Release` × `x86` / `x64`）で、リポジトリ内でビルドが成功した。フェーズ 6 で失敗していた `Debug x64` も成功した。**警告は 0 件**になった。テスト 74 件がすべて成功し、`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
 
 **未実施**:
-- D6 の決定と対応
 - 手動確認（実機）。確認する項目は次のとおり。
   - 描画とちらつき（D2 と D3 で描画処理を変えたため）
   - 範囲選択の枠にぴったり接する図形が選択されること
   - 「Random」で追加した図形が 1 回の Undo で消えること
+  - 以前のバージョンで保存したファイルを開けること（名前空間の導入後）
