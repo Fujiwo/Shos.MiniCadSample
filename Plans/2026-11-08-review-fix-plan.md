@@ -569,3 +569,23 @@ point = DPtoLP(point);
   - その後 1 つだけを選ぶと、ダイアログに色と線幅が正しく表示される
   - 色の異なる図形の線幅を「Set」で変えても、色は変わらない
   - 1 回の Undo で色の変更が戻る
+
+### フェーズ 6（2026-11-08 実施。手動確認は未実施）
+
+| 項目 | 状態 | 内容 |
+|---|---|---|
+| 6-1 [M3] | 完了 | `Zooming::OnMouseWheel` で、スクリーン座標を `ScreenToClient` でクライアント座標にし、`DPtoLP` の戻り値を使うようにした。`ShiftTo` 内の未使用変数を削除し、`OnDragEnd` の後で `isDragging` を `false` に戻すようにした。 |
+| 6-2 [M5] | 完了 | `OnCommand` の戻り値を `BOOL` にし、色ボタンと「Set」ボタン以外は `CDialogEx::OnCommand` に渡すようにした。× ボタンと Esc は `OnCancel` でダイアログを隠す。`OnOK`（Enter）は線幅を適用し、ダイアログは閉じない。フェーズ 5 で `DoDataExchange` を表示専用にしたため、`OnOK` は `UpdateData(TRUE)` ではなく `SavePenWidth()` を呼ぶ。 |
+| 6-3 [L1] | 完了 | `MouseEventTranslator::OnRButtonUp` で、ドラッグしていなければ `OnClick` を送らないようにした。右ドラッグによるパンは従来どおり。 |
+| 6-4 [L2] | 完了 | `Geometry::Clamp`（`PtInRect` と同じく、右端と下端を含まない）を追加した。`Document` は、領域内で始まったドラッグだけをコマンドに渡す。その後のドラッグ中と終了時の点は領域内に `Clamp` して渡す（下記）。 |
+| 6-5 [L7] | 完了 | `TRACE` の余分な引数 `methodName` を削除した。 |
+
+**計画からの変更点（6-4）**: 計画どおり `OnDragging` と `OnDragEnd` で `Clamp` するだけだと、領域外で始まったドラッグが領域内に入ったときに、`OnDragStart` を受けていないコマンドへ `OnDragging` と `OnDragEnd` が届く。`SelectCommand` は前回の始点のまま範囲選択をしてしまう。そこで `Document` に `isDragging` を持たせ、ドラッグが領域内で始まった場合だけ、そのドラッグの残りをコマンドに渡すようにした。これまでは、ドラッグ中に領域外へ出ると `OnDraggingAbort` していたが、今後は端で止まったまま続く。
+
+**テスト**: `geometry_test` に `Clamp` のテストを 1 件追加した（合計 71 件）。その他の変更は、ウィンドウやマウス入力に依存するため、手動で確認する。
+
+**ビルドとテスト**:
+- `Debug x86`、`Release x86`、`Release x64` は、リポジトリ内でビルドが成功し、テスト 71 件がすべて成功した。警告はベースラインから増えていない。`MemoryLeakTest`（x64 / x86 Debug）でリークなし。
+- `Debug x64` は、リポジトリ内の中間ファイル `Shos.MiniCadSample\x64\Debug\vc145.pdb` への書き込みが C1090 や C1041 で失敗し続けた（Dropbox の同期によるロックと思われる）。そこで、出力先を一時フォルダーにしてビルドし、成功を確認した。テスト 71 件もすべて成功し、`MemoryLeakTest` でもリークはなかった。
+
+**未実施**: 完了条件の手動確認（実機）。
