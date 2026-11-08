@@ -24,6 +24,9 @@
     <ClCompile Include="ModelTest.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="MouseEventTranslatorTest.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="..\Shos.MiniCadSample\Figure.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

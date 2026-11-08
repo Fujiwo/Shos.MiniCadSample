@@ -169,6 +169,7 @@
     <ClCompile Include="Shos.MiniCadSample.Test.cpp" />
     <ClCompile Include="FigureAttributeAndGeometryTest.cpp" />
     <ClCompile Include="ModelTest.cpp" />
+    <ClCompile Include="MouseEventTranslatorTest.cpp" />
     <!-- The parts of the application that the tests link to (IMPLEMENT_SERIAL). -->
     <ClCompile Include="..\Shos.MiniCadSample\Figure.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>

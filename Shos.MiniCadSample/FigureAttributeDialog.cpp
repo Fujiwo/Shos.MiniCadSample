@@ -1,4 +1,5 @@
-﻿#include "pch.h"
+﻿// Implementation of FigureAttributeDialog (data exchange and command handling).
+#include "pch.h"
 #include "afxdialogex.h"
 
 #ifdef _DEBUG

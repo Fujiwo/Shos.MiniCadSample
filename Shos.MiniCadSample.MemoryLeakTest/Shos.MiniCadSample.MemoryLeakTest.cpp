@@ -14,6 +14,7 @@
 
 using namespace shos;
 
+// A small heap-allocated element type; the scenarios below allocate it with new and must free every instance.
 class foo
 {
     int value;
@@ -23,6 +24,7 @@ public:
     operator int() { return value; }
 };
 
+// Owns a foo and passes it to a clean-up function in the destructor (the pattern used by the collections).
 class function_test
 {
     std::function<void(foo*)> func;
@@ -39,12 +41,14 @@ public:
     }
 };
 
+// The clean-up function frees the element: no leak.
 void function_clean_up_test()
 {
     auto clean_up = [](foo* foo) { delete foo; };
     function_test function_test1(clean_up);
 }
 
+// Mixes push_back, erase, update, undo and redo on a vector with a custom clean-up function.
 void undo_redo_vector_memory_leak_test()
 {
     undo_redo_vector<foo*> array([](foo* foo) { delete foo; });
@@ -70,6 +74,7 @@ void undo_redo_vector_memory_leak_test()
     array.redo();
 }
 
+// The same sequence on the pointer collection, which deletes its elements by itself.
 void undo_redo_pointer_vector_memory_leak_test()
 {
     undo_redo_pointer_vector<foo> array;
@@ -95,6 +100,7 @@ void undo_redo_pointer_vector_memory_leak_test()
     array.redo();
 }
 
+// Nested transactions, clear inside a transaction, and a transaction left by an exception.
 void transaction_memory_leak_test()
 {
     undo_redo_pointer_vector<foo> array;
@@ -123,6 +129,7 @@ void transaction_memory_leak_test()
     }
 }
 
+// Elements held only by the history must be deleted when the history is dropped or the collection is reset.
 void history_memory_leak_test()
 {
     undo_redo_pointer_vector<foo> array;
@@ -141,6 +148,7 @@ void history_memory_leak_test()
     array.push_back(new foo(500));
 }
 
+// Move construction and move assignment must transfer ownership without leaking or double deletion.
 void move_memory_leak_test()
 {
     undo_redo_pointer_vector<foo> source;
@@ -158,6 +166,7 @@ void move_memory_leak_test()
     source.push_back(new foo(300)); // A moved-from collection still deletes its elements.
 }
 
+// Elements that can only be moved (unique_ptr) are cleaned up by their own destructor.
 void move_only_element_memory_leak_test()
 {
     undo_redo_vector<std::unique_ptr<foo>> array;
@@ -169,6 +178,7 @@ void move_only_element_memory_leak_test()
     array.undo();
 }
 
+// The thread-safe wrapper, including changes made through modify().
 void synchronized_memory_leak_test()
 {
     synchronized_undo_redo_vector<foo*> array([](foo*& element) { delete element; });
@@ -184,6 +194,7 @@ void synchronized_memory_leak_test()
     array.clear_history();
 }
 
+// Runs the scenarios (or the self-check) and returns 1 if the CRT debug heap reports a leak.
 int main(int argc, char* argv[])
 {
 #ifdef _DEBUG

@@ -1,5 +1,8 @@
 #pragma once
 
+// Figure classes (dot, line, rectangle, ellipse): drawing, hit testing, serialization and cloning.
+// FigureHelper creates random figures. All coordinates are logical coordinates.
+
 #include <afx.h>
 #include <algorithm>
 #include <random>
@@ -12,17 +15,21 @@ namespace Shos::MiniCadSample::Models {
 
 using namespace Utilities;
 
+// Base class of all figures. Serializable (DECLARE_SERIAL) and cloneable.
+// A figure that has been given to Model is owned by it and must not be changed in place (except by Select):
+// to change it, Clone() it, edit the clone and replace the original (see Model::Update), so that it is undoable.
 class Figure : public CObject
 {
-    static constexpr long     selectorSize     = 10L;
+    static constexpr long     selectorSize     = 10L;      // Half the side of a selection marker.
     static constexpr long     selectorPenWidth = 5;
     static constexpr COLORREF selectedColor    = RGB(0x80, 0x00, 0x40);
     static constexpr COLORREF areaColor        = RGB(0x00, 0xa0, 0xff);
     
     FigureAttribute attribute;
-    bool            isSelected = false;
+    bool            isSelected = false; // Not serialized: a loaded figure starts unselected.
 
 public:
+    // The color and pen width of the figure. Always fully valid (see FigureAttribute).
     const FigureAttribute& Attribute() const
     {
         return attribute;
@@ -51,11 +58,14 @@ public:
         return isSelected;
     }
 
+    // Sets the selection state in place. This is the one change that is not recorded for undo.
     void Select(bool selected)
     {
         this->isSelected = selected;
     }
 
+    // Returns a new copy of the same dynamic type, including the attribute and the selection state.
+    // The caller owns the copy (normally it is handed to Model).
     virtual Figure* Clone()
     {
         return new Figure(*this);
@@ -74,6 +84,7 @@ public:
             DrawSelector(dc);
     }
 
+    // Draws the outline of GetArea() (a debugging aid).
     void DrawArea(CDC& dc) const
     {
         StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
@@ -83,6 +94,8 @@ public:
         dc.Rectangle(GetArea());
     }
 
+    // The bounding rectangle that the figure can paint on: the shape area enlarged by the pen width and
+    // the selection markers. Used for redrawing and for selecting by a rectangle.
     CRect GetArea() const
     {
         auto area   = GetShapeArea();
@@ -91,6 +104,8 @@ public:
         return area;
     }
 
+    // The distance from point to the outline of the figure, used for picking (0 means on it).
+    // The base class returns the maximum distance, so that a figure without a shape is never picked.
     virtual long GetDistanceFrom(CPoint /* point */) const
     {
         return Geometry::maximumDistance;
@@ -103,20 +118,24 @@ public:
     }
 
 protected:
+    // Draws only the shape. The pen and the null brush are already selected into dc by Draw.
     virtual void DrawShape(CDC& /* dc */) const
     {}
 
+    // The bounding rectangle of the shape itself (normalized, without the pen width or markers).
     virtual CRect GetShapeArea() const
     {
         return CRect();
     }
 
+    // The points where the selection markers are drawn (end points or corners).
     virtual std::vector<CPoint> GetPoints() const
     {
         return {};
     }
     
 private:
+    // Draws a marker on each of GetPoints().
     void DrawSelector(CDC& dc) const
     {
         StockObjectSelector stockObjectSelector(dc, NULL_BRUSH);
@@ -137,10 +156,11 @@ private:
     DECLARE_SERIAL(Figure)
 };
 
+// A filled-looking small circle (drawn as an outline) of a fixed radius around position.
 class DotFigure : public Figure
 {
     static constexpr long radius = 10L;
-    CPoint                position;
+    CPoint                position; // The center.
         
 public:
     DotFigure() = default;
@@ -155,6 +175,7 @@ public:
         return new DotFigure(*this);
     }
 
+    // The distance to the circle, 0 inside it.
     virtual long GetDistanceFrom(CPoint point) const override
     {
         return (std::max)(Geometry::GetDistance(point, position) - radius, 0L);
@@ -190,6 +211,7 @@ protected:
     DECLARE_SERIAL(DotFigure)
 };
 
+// A line segment from start to end.
 class LineFigure : public Figure
 {
     CPoint start, end;
@@ -244,10 +266,12 @@ protected:
     DECLARE_SERIAL(LineFigure)
 };
 
+// Common base of RectangleFigure and EllipseFigure: both are defined by a normalized bounding rectangle.
+// The derived classes provide DrawShape, Clone and GetDistanceFrom.
 class RectangleFigureBase : public Figure
 {
 protected:
-    CRect position;
+    CRect position; // Normalized (left <= right, top <= bottom).
 
 public:
     RectangleFigureBase() = default;
@@ -283,6 +307,7 @@ protected:
     DECLARE_SERIAL(RectangleFigureBase)
 };
 
+// A rectangle outline.
 class RectangleFigure : public RectangleFigureBase
 {
 public:
@@ -298,20 +323,21 @@ public:
         return new RectangleFigure(*this);
     }
 
+    virtual long GetDistanceFrom(CPoint point) const override
+    {
+        return Geometry::GetDistance(point, position);
+    }
+
 protected:
     virtual void DrawShape(CDC& dc) const override
     {
         dc.Rectangle(&position);
     }
 
-    virtual long GetDistanceFrom(CPoint point) const override
-    {
-        return Geometry::GetDistance(point, position);
-    }
-
     DECLARE_SERIAL(RectangleFigure)
 };
 
+// An ellipse outline inscribed in the bounding rectangle.
 class EllipseFigure : public RectangleFigureBase
 {
 public:
@@ -327,27 +353,30 @@ public:
         return new EllipseFigure(*this);
     }
 
+    virtual long GetDistanceFrom(CPoint point) const override
+    {
+        return Geometry::GetDistanceToEllipse(point, position);
+    }
+
 protected:
     virtual void DrawShape(CDC& dc) const override
     {
         dc.Ellipse(&position);
     }
 
-    virtual long GetDistanceFrom(CPoint point) const override
-    {
-        return Geometry::GetDistanceToEllipse(point, position);
-    }
-
     DECLARE_SERIAL(EllipseFigure)
 };
 
+// Helpers that work on figures: random figure generation (for sample data) and the area of a set of figures.
 class FigureHelper
 {
-    static constexpr long figureKindNumber = 4;
+    static constexpr long figureKindNumber = 4; // Dot, line, rectangle, ellipse: the cases of GetRandomFigure.
 
     inline static std::mt19937 mt{ std::random_device{}() };
 
 public:
+    // Creates count random figures inside area, with random colors and pen widths.
+    // The caller owns the returned figures.
     static std::vector<Figure*> GetRandomFigures(size_t count, const CRect& area)
     {
         std::vector<Figure*> figures;
@@ -360,6 +389,7 @@ public:
         return figures;
     }
 
+    // Sets area to the union of the GetArea() of the figures. Returns false (area untouched) if there are none.
     static bool GetArea(const std::vector<Figure*>& figures, CRect& area)
     {
         if (figures.empty())
@@ -371,6 +401,7 @@ public:
     }
 
 private:
+    // Creates one random figure, or returns nullptr (never in practice) if the kind has no case.
     static Figure* GetRandomFigure(const CRect& area)
     {
         Figure* figure = nullptr;

@@ -1,4 +1,6 @@
 ﻿#pragma once
+// The MFC document: wraps the Model, forwards model changes to the views, owns the CommandManager and
+// receives mouse events (already in logical coordinates) from the view. Also handles the edit and figure menu commands.
 
 #include "Model.h"
 #include "Command.h"
@@ -9,10 +11,14 @@ namespace Shos::MiniCadSample::Controllers {
 using namespace Models;
 using namespace Utilities;
 
+// Observes the Model: any change other than ViewOnly marks the document modified, and all views are
+// updated with the Hint. Mouse events are filtered to the model area before they reach the CommandManager.
 class Document : public CDocument, public Observer<Hint>, public MouseEventTranslator::Listener
 {
+    // Background color of the drawing area.
     static constexpr COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
 
+    // The data. Declared before commandManager, which keeps a reference to it.
     Model          model;
     CommandManager commandManager;
     bool           isDragging = false; // Whether the current drag started in the area (and so was passed to the command).
@@ -31,6 +37,7 @@ public:
         return model.GetCurrentFigureAttribute();
     }
 
+    // Registers as an observer of the model so that model changes reach the views.
     Document() : commandManager(model)
     {
         model.AddObserver(*this);
@@ -46,6 +53,7 @@ public:
         return model.end();
     }
 
+    // Draws the area background and then all figures. Used for the cached (lower) layer of the view.
     void Draw(CDC& dc) const
     {
         DrawArea(dc);
@@ -58,6 +66,7 @@ public:
         dc.FillSolidRect(GetArea(), areaColor);
     }
 
+    // Draws the current command's rubber band and cursor (the upper layer, repainted on every WM_PAINT).
     void DrawCommand(CDC& dc)
     {
         commandManager.Draw(dc);
@@ -68,6 +77,7 @@ public:
         model.RemoveSelectedFigures();
     }
     
+    // Clicks and cursor moves outside the area are ignored.
     virtual void OnClick(CPoint point) override
     {
         if (IsValid(point))
@@ -111,6 +121,8 @@ public:
     }
 
 protected:
+    // Called by the Model after a change. ViewOnly changes (e.g. highlight) do not modify the document data.
+    // The views get the Hint as the pHint of UpdateAllViews, so they can redraw only what changed.
     virtual void Update(const Hint& hint) override
     {
         if (hint.type != Hint::Type::ViewOnly)
@@ -118,6 +130,7 @@ protected:
         UpdateAllViews(nullptr, 0, const_cast<Hint*>(&hint));
     }
 
+    // File load and save only (not the clipboard). Loading clears the undo history.
     virtual void Serialize(CArchive& ar) override
     {
         model.Serialize(ar);
@@ -132,12 +145,14 @@ public:
 
 protected:
 
+    // Called by MFC for New and before Open: clears the model, including its undo history.
     virtual void DeleteContents() override
     {
         model.Reset();
         CDocument::DeleteContents();
     }
 
+    // Edit menu handlers. The Update handlers enable the item only when the operation is possible.
     afx_msg void OnEditUndo()
     {
         model.Undo();
@@ -168,6 +183,7 @@ protected:
         cmdUI->Enable(model.CanRemoveSelectedFigures() ? 1 : 0);
     }
 
+    // Figure menu handlers. Choosing a tool switches the current command; the Update handlers show a check mark on the running tool.
     afx_msg void OnFigureDot()
     {
         SetCommand(new DotCommand());
@@ -208,6 +224,7 @@ protected:
         cmdUI->SetCheck(commandManager.IsRunning(RUNTIME_CLASS(EllipseCommand)) ? 1 : 0);
     }
 
+    // Adds random figures for testing.
     afx_msg void OnFigureRandom()
     {
         constexpr size_t count = 10;
@@ -225,12 +242,14 @@ protected:
     }
 
 private:
+    // Switches the tool (takes the ownership of command) and redraws the views to refresh the rubber band.
     void SetCommand(Command* command)
     {
         commandManager.SetCommand(command);
         UpdateAllViews(nullptr);
     }
     
+    // Returns true if the logical point is inside the model area.
     static bool IsValid(CPoint point)
     {
         return GetArea().PtInRect(point);

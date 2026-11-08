@@ -97,6 +97,7 @@ namespace ShosMiniCadSampleTest
         return false;
     }
 
+    // The area of each figure of the model, in order.
     std::vector<CRect> areas_of(const Model& model)
     {
         std::vector<CRect> areas;
@@ -105,6 +106,7 @@ namespace ShosMiniCadSampleTest
         return areas;
     }
 
+    // The selection flag of each figure of the model, in order.
     std::vector<bool> selection_of(const Model& model)
     {
         std::vector<bool> selection;
@@ -134,6 +136,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Tests of Model::Store and Model::Paste (clipboard data), including broken data and allocation failure.
     TEST_CLASS(model_clipboard_test)
     {
         // A model with figures far from the origin and an undo / redo history.
@@ -146,6 +149,7 @@ namespace ShosMiniCadSampleTest
             model.Undo(); // The dot is held by the redo history.
         }
 
+        // The figure at the given position in the model (by index, not by ID).
         static Figure* figure_at(const Model& model, size_t index)
         {
             return *std::next(model.begin(), index);
@@ -308,6 +312,7 @@ namespace ShosMiniCadSampleTest
         }
     };
 
+    // Tests of the other behavior of Model: removal, file format names, undo steps and attribute changes.
     TEST_CLASS(model_test)
     {
     public:

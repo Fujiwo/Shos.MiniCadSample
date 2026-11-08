@@ -1,3 +1,4 @@
+// Runtime class information of the commands (the command classes are otherwise header-only).
 #include "pch.h"
 
 #ifdef _DEBUG

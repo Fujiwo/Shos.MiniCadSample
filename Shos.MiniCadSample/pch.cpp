@@ -1,1 +1,2 @@
-﻿#include "pch.h"
+﻿// Builds the precompiled header (pch.h).
+#include "pch.h"

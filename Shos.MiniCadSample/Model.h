@@ -1,5 +1,8 @@
 #pragma once
 
+// Model: owns the figures and the figure attribute for new figures. Every change is undoable (except
+// selection) and is announced to the observers (document, views) as a Hint.
+
 #include <afx.h>
 #include <algorithm>
 #include <iterator>
@@ -14,18 +17,19 @@ namespace Shos::MiniCadSample::Models {
 
 using namespace Utilities;
 
+// What a notification from Model tells the views, so that they can redraw only what changed.
 struct Hint : public CObject
 {
     enum class Type
     {
-        Added   ,
-        Removed ,
-        Changed ,
-        All     ,
-        ViewOnly
+        Added   , // figures were added.
+        Removed , // figures were removed (they are still alive in the undo history).
+        Changed , // figures were replaced: contains both the old and the new ones.
+        All     , // Anything may have changed (undo, redo, load): redraw everything.
+        ViewOnly  // Only view state changed (selection, attribute): no figure was added or removed.
     };
 
-    std::vector<Figure*> figures;
+    std::vector<Figure*> figures; // The affected figures (not owned). Empty for All and ViewOnly.
     Type                 type;
 
     explicit Hint(Type type) : type(type)
@@ -38,19 +42,24 @@ struct Hint : public CObject
     {}
 };
 
+// The document data. Figures live in the logical area (0, 0)-(size, size). The model owns the figures
+// (including those in the undo history), so a figure given to it must never be deleted by the caller.
+// Observers: Observable<Hint> for changes, and Observer<FigureAttribute> to receive edits from the dialog.
 class Model : public Observable<Hint>, public Observer<FigureAttribute>
 {
-    static constexpr LONG size                   = 2000L;
-    static constexpr LONG minimumLogicalAreaSize = size / 10L;
+    static constexpr LONG size                   = 2000L;       // Side of the square logical area.
+    static constexpr LONG minimumLogicalAreaSize = size / 10L;  // The smallest area a view may show (the zoom limit).
 
-    shos::undo_redo_pointer_vector<Figure> figures;
-    const Figure*                          highlightedFigure = nullptr;
+    shos::undo_redo_pointer_vector<Figure> figures;                   // The figures, in drawing order, with the undo history.
+    const Figure*                          highlightedFigure = nullptr; // The figure under the cursor (not owned), or nullptr.
 
-    FigureAttribute currentFigureAttribute;
+    FigureAttribute currentFigureAttribute; // The attribute given to new figures.
 
 public:
+    // Iterates over the figures (read-only pointers to the slots; the figures themselves can be Select()ed).
     using iterator = shos::undo_redo_vector<Figure*>::const_iterator;
 
+    // The area that figures can be drawn in, and the smallest part of it a view may show.
     static CSize GetMinimumSize() { return CSize(minimumLogicalAreaSize, minimumLogicalAreaSize); }
     static CSize GetSize()        { return CSize(size, size); }
     static CRect GetArea()        { return CRect(CPoint(), GetSize()); }
@@ -63,6 +72,7 @@ public:
         Clear();
     }
 
+    // The attribute given to new figures (shown in the dialog when nothing is selected).
     FigureAttribute& GetCurrentFigureAttribute()
     {
         return currentFigureAttribute;
@@ -81,6 +91,8 @@ public:
         }
     }
 
+    // Applies change to targetFigures as one undo step. Each figure is cloned and replaced, so the old
+    // ones stay in the undo history. Figures that the change does not affect are left alone.
     void Update(const std::vector<Figure*>& targetFigures, const FigureAttribute& change)
     {
         // Both the old and the new figures are notified, since the new ones can be larger (e.g. a thicker pen)
@@ -119,6 +131,7 @@ public:
         return true;
     }
 
+    // Range access to the figures (so that range-for and std::ranges work on a Model).
     iterator begin() const
     {
         return figures.cbegin();
@@ -129,6 +142,7 @@ public:
         return figures.cend();
     }
 
+    // Adds figure (the model owns it from then on) with the attribute for new figures. Undoable.
     void Add(Figure* figure)
     {
         ASSERT_VALID(figure);
@@ -138,6 +152,7 @@ public:
         NotifyObservers(Hint(Hint::Type::Added, figure));
     }
 
+    // Removes the selected figures as one undo step.
     void RemoveSelectedFigures()
     {
         auto selectedFigures = GetSelectedFigures();
@@ -169,12 +184,14 @@ public:
         return figures.empty();
     }
     
+    // Toggles the selection of figure and updates the attribute dialog. Not undoable.
     void Select(Figure& figure)
     {
         figure.Select(!figure.IsSelected());
         SetSelectedFigureAttribute();
     }
 
+    // Selects the figures whose area is inside area (rubber-band selection) and unselects the others.
     void Select(const CRect& area)
     {
         for (auto figure : figures)
@@ -182,6 +199,7 @@ public:
         SetSelectedFigureAttribute();
     }
 
+    // Unselects every figure and updates the attribute dialog.
     void UnSelectAll()
     {
         for (auto figure : figures)
@@ -189,6 +207,7 @@ public:
         SetSelectedFigureAttribute();
     }
 
+    // Undoes / redoes the last step (if any) and notifies the views to redraw everything.
     void Undo()
     {
         if (figures.undo()) {
@@ -215,6 +234,8 @@ public:
         return figures.can_redo();
     }
 
+    // The figure under the cursor, drawn emphasized by the view. Not a model change: no notification, no undo.
+    // The pointer is reset to nullptr whenever the figures change (see InvalidateHighlight).
     void Highlight(const Figure* figure)
     {
         highlightedFigure = figure;
@@ -339,6 +360,7 @@ private:
         highlightedFigure = nullptr;
     }
 
+    // Pointers to all the figures, or to the selected ones only.
     std::vector<Figure*> GetFigures(bool selectedOnly) const
     {
         return selectedOnly ? GetSelectedFigures() : std::vector<Figure*>(figures.cbegin(), figures.cend());
@@ -387,6 +409,7 @@ private:
         figures.append(std::move(elements));
     }
 
+    // The attribute for the current selection (see GetAttribute).
     FigureAttribute GetSelectedFigureAttribute() const
     {
         return GetAttribute(GetSelectedFigures());
@@ -403,6 +426,7 @@ private:
         return currentFigureAttribute;
     }
 
+    // Copies the attributes of the figures (the input of FigureAttribute::GetSum).
     static std::vector<FigureAttribute> GetSelectedFigureAttributes(const std::vector<Figure*>& selectedFigures)
     {
         std::vector<FigureAttribute> selectedFigureAttributes;
@@ -412,12 +436,15 @@ private:
         return selectedFigureAttributes;
     }
     
+    // Pushes the attribute of the current selection to the dialog (Application::Set) and tells the views
+    // to redraw (selection markers). Called whenever the selection or the figures change.
     void SetSelectedFigureAttribute()
     {
         Application::Set(GetSelectedFigureAttribute());
         NotifyObservers(Hint(Hint::Type::ViewOnly));
     }
 
+    // Pointers to the selected figures, in drawing order.
     std::vector<Figure*> GetSelectedFigures() const
     {
         std::vector<Figure*> selectedFigures;

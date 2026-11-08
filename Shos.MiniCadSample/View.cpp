@@ -1,4 +1,5 @@
 ﻿#include "pch.h"
+// The runtime-class and message-map tables of View (the implementation is in View.h).
 #include "framework.h"
 
 #ifdef _DEBUG
@@ -12,6 +13,7 @@ namespace Shos::MiniCadSample::Views {
 
 using namespace Shos::MFCDoubleBuffer;
 
+// The base class must be named literally here (the macros take an unqualified name).
 #ifdef SCROLL_VIEW
 IMPLEMENT_DYNCREATE(View, DoubleBufferScrollView)
 #else // SCROLL_VIEW
@@ -23,12 +25,14 @@ BEGIN_MESSAGE_MAP(View, DoubleBufferScrollView)
 #else // SCROLL_VIEW
 BEGIN_MESSAGE_MAP(View, DoubleBufferView)
 #endif // SCROLL_VIEW 
+    // Clipboard.
     ON_COMMAND(ID_EDIT_COPY, OnEditCopy)
     ON_UPDATE_COMMAND_UI(ID_EDIT_COPY, OnUpdateEditCopy)
     ON_COMMAND(ID_EDIT_CUT, OnEditCut)
     ON_UPDATE_COMMAND_UI(ID_EDIT_CUT, OnUpdateEditCut)
     ON_COMMAND(ID_EDIT_PASTE, OnEditPaste)
     ON_UPDATE_COMMAND_UI(ID_EDIT_PASTE, OnUpdateEditPaste)
+    // Mouse and keyboard input.
     ON_WM_LBUTTONDOWN()
     ON_WM_LBUTTONUP()
     ON_WM_RBUTTONDOWN()

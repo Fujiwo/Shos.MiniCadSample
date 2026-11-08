@@ -1,4 +1,5 @@
 ﻿#include "pch.h"
+// MFC runtime class information and the command message map of Document (the class is otherwise header-only).
 #include "framework.h"
 
 #ifdef _DEBUG
@@ -12,6 +13,7 @@ namespace Shos::MiniCadSample::Controllers {
 
 IMPLEMENT_DYNCREATE(Document, CDocument)
 
+// Routes the edit and figure menu commands (and their enable/check state updates) to Document.
 BEGIN_MESSAGE_MAP(Document, CDocument)
     ON_COMMAND(ID_EDIT_UNDO, OnEditUndo)
     ON_UPDATE_COMMAND_UI(ID_EDIT_UNDO, OnUpdateEditUndo)
