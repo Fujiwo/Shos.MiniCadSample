@@ -183,6 +183,20 @@ namespace ShosMiniCadSampleTest
             Assert::AreEqual(10L, Geometry::GetDistanceToEllipse(CPoint(50, 10), CRect(0, 0, 100, 0)));
         }
 
+        TEST_METHOD(clamp_point_into_area)
+        {
+            const CRect area(10, 20, 110, 220);
+            Assert::IsTrue(CPoint( 50,  60) == Geometry::Clamp(CPoint( 50,  60), area)); // Inside: unchanged.
+            Assert::IsTrue(CPoint( 10,  20) == Geometry::Clamp(CPoint(-50, -60), area)); // Above left.
+            Assert::IsTrue(CPoint(109, 219) == Geometry::Clamp(CPoint(500, 600), area)); // Below right.
+            Assert::IsTrue(CPoint(109,  60) == Geometry::Clamp(CPoint(110,  60), area)); // On the right edge (outside).
+            Assert::IsTrue(CPoint( 50,  20) == Geometry::Clamp(CPoint( 50,   0), area));
+
+            // The result is always in the area, as PtInRect tells.
+            for (auto point : { CPoint(-1, -1), CPoint(110, 220), CPoint(1000, 30), CPoint(30, 1000) })
+                Assert::IsTrue(area.PtInRect(Geometry::Clamp(point, area)) != FALSE);
+        }
+
         TEST_METHOD(area_of_rectangles)
         {
             CRect area;
