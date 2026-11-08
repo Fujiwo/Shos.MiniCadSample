@@ -8,6 +8,8 @@
 #include "Document.h"
 #include "View.h"
 
+namespace Shos::MiniCadSample::Views {
+
 using namespace Shos::MFCDoubleBuffer;
 
 #ifdef SCROLL_VIEW
@@ -38,3 +40,5 @@ BEGIN_MESSAGE_MAP(View, DoubleBufferView)
 #endif // ZOOMING_VIEW 
     ON_WM_KEYDOWN()
 END_MESSAGE_MAP()
+
+} // namespace Shos::MiniCadSample::Views

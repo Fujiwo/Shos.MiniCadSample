@@ -4,6 +4,11 @@
 #include "Command.h"
 #include "MouseEventTranslator.h"
 
+namespace Shos::MiniCadSample::Controllers {
+
+using namespace Models;
+using namespace Utilities;
+
 class Document : public CDocument, public Observer<Hint>, public MouseEventTranslator::Listener
 {
     static const COLORREF areaColor = RGB(0xff, 0xf0, 0xe0);
@@ -234,3 +239,5 @@ private:
     DECLARE_DYNCREATE(Document)
     DECLARE_MESSAGE_MAP()
 };
+
+} // namespace Shos::MiniCadSample::Controllers

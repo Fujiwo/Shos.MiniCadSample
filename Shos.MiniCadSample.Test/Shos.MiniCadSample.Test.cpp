@@ -15,6 +15,7 @@
 #include "AllocationFailure.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
+using namespace Shos::MiniCadSample::Utilities;
 
 // ---- Allocation failure injection (see AllocationFailure.h) ----
 

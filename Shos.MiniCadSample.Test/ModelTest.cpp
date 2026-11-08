@@ -3,11 +3,14 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 #include <functional>
+#include <string>
 #include <vector>
 #include "AllocationFailure.h"
 #include "../Shos.MiniCadSample/Model.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
+using namespace Shos::MiniCadSample::Models;
+using namespace Shos::MiniCadSample::Utilities;
 
 // A serializable class that is not a Figure, to make broken clipboard data.
 class NotFigure : public CObject
@@ -325,6 +328,34 @@ namespace ShosMiniCadSampleTest
             model.RemoveSelectedFigures();
             Assert::AreEqual(0, notifications);
             Assert::AreEqual<size_t>(1, areas_of(model).size());
+        }
+
+        // Files and the clipboard data store the class names of the figures (CRuntimeClass::m_lpszClassName).
+        // They must stay unqualified (not changed by the namespaces), so that files saved by older versions can be read.
+        TEST_METHOD(figure_class_names_are_unqualified)
+        {
+            Assert::AreEqual("Figure"             , RUNTIME_CLASS(Figure             )->m_lpszClassName);
+            Assert::AreEqual("DotFigure"          , RUNTIME_CLASS(DotFigure          )->m_lpszClassName);
+            Assert::AreEqual("LineFigure"         , RUNTIME_CLASS(LineFigure         )->m_lpszClassName);
+            Assert::AreEqual("RectangleFigureBase", RUNTIME_CLASS(RectangleFigureBase)->m_lpszClassName);
+            Assert::AreEqual("RectangleFigure"    , RUNTIME_CLASS(RectangleFigure    )->m_lpszClassName);
+            Assert::AreEqual("EllipseFigure"      , RUNTIME_CLASS(EllipseFigure      )->m_lpszClassName);
+
+            // Written by name, and read back by looking the name up.
+            CMemFile file;
+            {
+                CArchive ar(&file, CArchive::store);
+                RectangleFigure figure(CRect(0, 0, 10, 10));
+                ar.WriteObject(&figure);
+                ar.Close();
+            }
+            const auto length = static_cast<size_t>(file.GetLength());
+            std::vector<BYTE> bytes(length);
+            file.SeekToBegin();
+            file.Read(bytes.data(), static_cast<UINT>(length));
+            const std::string data(bytes.begin(), bytes.end());
+            Assert::IsTrue(data.find("RectangleFigure") != std::string::npos);
+            Assert::IsTrue(data.find("Shos") == std::string::npos);
         }
 
         TEST_METHOD(dummy_data_is_one_undo_step)

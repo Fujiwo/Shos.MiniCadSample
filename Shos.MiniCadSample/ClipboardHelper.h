@@ -4,6 +4,8 @@
 #include <exception>
 #include <functional>
 
+namespace Shos::MiniCadSample::Views {
+
 // Copies figures to the clipboard and pastes them from it.
 //
 // Copy puts three formats on the clipboard at once:
@@ -217,3 +219,5 @@ private:
         return true;
     }
 };
+
+} // namespace Shos::MiniCadSample::Views

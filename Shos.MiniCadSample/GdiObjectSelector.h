@@ -2,6 +2,8 @@
 
 #include <afx.h>
 
+namespace Shos {
+
 class GdiObjectSelectorBase
 {
     CDC&              dc;
@@ -33,3 +35,5 @@ public:
     GdiObjectSelector(CDC& dc, CGdiObject& gdiObject) : GdiObjectSelectorBase(dc, dc.SelectObject(&gdiObject))
     {}
 };
+
+} // namespace Shos

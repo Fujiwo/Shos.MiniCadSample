@@ -6,6 +6,8 @@
 #include "../Shos.MiniCadSample/Geometry.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
+using namespace Shos::MiniCadSample::Models;
+using namespace Shos::MiniCadSample::Utilities;
 
 namespace ShosMiniCadSampleTest
 {

@@ -7,6 +7,11 @@
 #include <afx.h>
 #include <algorithm>
 #include <vector>
+#include "Geometry.h"
+
+namespace Shos::MiniCadSample::Controllers {
+
+using namespace Utilities;
 
 class MouseEventTranslator
 {
@@ -203,3 +208,5 @@ private:
 };
 
 inline MouseEventTranslator::Listener::~Listener() {}
+
+} // namespace Shos::MiniCadSample::Controllers

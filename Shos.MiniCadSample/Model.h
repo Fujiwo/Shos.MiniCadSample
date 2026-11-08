@@ -8,6 +8,10 @@
 #include "Application.h"
 #include "undo_redo_vector.h"
 
+namespace Shos::MiniCadSample::Models {
+
+using namespace Utilities;
+
 struct Hint : public CObject
 {
     enum class Type
@@ -428,3 +432,5 @@ private:
         return selectedFigures;
     }
 };
+
+} // namespace Shos::MiniCadSample::Models

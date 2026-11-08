@@ -3,6 +3,10 @@
 #include <afx.h>
 #include "Geometry.h"
 
+namespace Shos::MiniCadSample::Views {
+
+using namespace Utilities;
+
 class Zooming
 {
     const CSize minimumSize;
@@ -110,3 +114,5 @@ private:
         return point;
     }
 };
+
+} // namespace Shos::MiniCadSample::Views

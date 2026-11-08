@@ -3,6 +3,11 @@
 #include "afxdialogex.h"
 #include "FigureAttribute.h"
 
+namespace Shos::MiniCadSample::Views {
+
+using namespace Models;
+using namespace Utilities;
+
 // A modeless dialog that shows the attribute of the selected figures (or of new figures)
 // and notifies its observers (Model) of each change the user makes.
 // A notification is a change: only the changed item is valid (see FigureAttribute::ApplyTo),
@@ -80,3 +85,5 @@ private:
     enum { IDD = IDD_FIGURE_ATTRIBUTE_DIALOG };
 #endif
 };
+
+} // namespace Shos::MiniCadSample::Views

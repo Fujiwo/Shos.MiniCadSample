@@ -8,6 +8,8 @@
 #include "FigureAttributeDialog.h"
 #include "resource.h"
 
+namespace Shos::MiniCadSample::Views {
+
 bool FigureAttributeDialog::Create(CWnd& parentWindow)
 {
     if (CDialogEx::Create(IDD_FIGURE_ATTRIBUTE_DIALOG, &parentWindow)) {
@@ -74,3 +76,5 @@ IMPLEMENT_DYNAMIC(FigureAttributeDialog, CDialogEx)
 
 BEGIN_MESSAGE_MAP(FigureAttributeDialog, CDialogEx)
 END_MESSAGE_MAP()
+
+} // namespace Shos::MiniCadSample::Views

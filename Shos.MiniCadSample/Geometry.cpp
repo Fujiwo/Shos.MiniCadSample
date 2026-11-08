@@ -11,4 +11,8 @@
 #undef max
 #endif // max
 
+namespace Shos::MiniCadSample::Utilities {
+
 const long Geometry::maximumDistance = std::numeric_limits<long>::max();
+
+} // namespace Shos::MiniCadSample::Utilities

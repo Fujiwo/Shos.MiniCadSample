@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <vector>
 
+namespace Shos::MiniCadSample::Utilities {
+
 class Geometry
 {
 public:
@@ -214,3 +216,5 @@ private:
         value = Round(static_cast<double>(base) + (value - base) * rate);
     }
 };
+
+} // namespace Shos::MiniCadSample::Utilities

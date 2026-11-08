@@ -6,6 +6,10 @@
 #include "GdiObjectSelector.h"
 #include "Geometry.h"
 
+namespace Shos::MiniCadSample::Models {
+
+using namespace Utilities;
+
 class Figure : public CObject
 {
     static const long     selectorSize     = 10L;
@@ -447,3 +451,5 @@ private:
         return RGB(RandomValue(0, 255), RandomValue(0, 255), RandomValue(0, 255));
     }
 };
+
+} // namespace Shos::MiniCadSample::Models

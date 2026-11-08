@@ -5,6 +5,11 @@
 #include "Model.h"
 #include "MouseEventTranslator.h"
 
+namespace Shos::MiniCadSample::Controllers {
+
+using namespace Models;
+using namespace Utilities;
+
 class Cursor
 {
 public:
@@ -633,3 +638,5 @@ private:
         return currentCommand;
     }
 };
+
+} // namespace Shos::MiniCadSample::Controllers

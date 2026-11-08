@@ -4,6 +4,8 @@
 #include <vector>
 #include "Observer.h"
 
+namespace Shos::MiniCadSample::Models {
+
 // The attribute of a figure, or a set of them.
 // A "valid" flag tells whether the item has a value:
 // - The attribute of a figure, and the one used for new figures, always have both items valid.
@@ -109,3 +111,5 @@ public:
             ar >> color >> penWidth;
     }
 };
+
+} // namespace Shos::MiniCadSample::Models

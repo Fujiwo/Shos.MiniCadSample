@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <vector>
 
+namespace Shos::MiniCadSample::Utilities {
+
 template <typename THint>
 class Observer
 {
@@ -42,3 +44,5 @@ public:
             observer->Update(hint);
     }
 };
+
+} // namespace Shos::MiniCadSample::Utilities

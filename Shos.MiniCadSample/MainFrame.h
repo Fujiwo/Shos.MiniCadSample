@@ -3,6 +3,11 @@
 #include "FigureAttributeDialog.h"
 #include "Observer.h"
 
+namespace Shos::MiniCadSample::Views {
+
+using namespace Models;
+using namespace Utilities;
+
 class MainFrame : public CFrameWnd
 {
     FigureAttributeDialog figureAttributeDialog;
@@ -54,3 +59,5 @@ private:
     DECLARE_DYNCREATE(MainFrame)
     DECLARE_MESSAGE_MAP()
 };
+
+} // namespace Shos::MiniCadSample::Views

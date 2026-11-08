@@ -8,7 +8,14 @@
 #include "Zooming.h"
 #endif // ZOOMING_VIEW
 #include "MainFrame.h"
+#include "Document.h"
 #include "MouseEventTranslator.h"
+
+namespace Shos::MiniCadSample::Views {
+
+using namespace Models;
+using namespace Utilities;
+using namespace Controllers;
 
 // The base class. An alias in View, not "using namespace" here, so that the namespace does not leak
 // into every file that includes this header.
@@ -323,3 +330,5 @@ private:
     DECLARE_DYNCREATE(View)
     DECLARE_MESSAGE_MAP()
 };
+
+} // namespace Shos::MiniCadSample::Views
