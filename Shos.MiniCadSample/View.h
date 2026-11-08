@@ -157,6 +157,15 @@ protected:
             zooming.OnDragStart(point);
     }
     
+    // The view follows the mouse while dragging.
+    virtual void OnDragging(UINT keys, CPoint point) override
+    {
+        if ((keys & MK_RBUTTON) != 0U && zooming.OnDragging(point)) {
+            Update();
+            Invalidate();
+        }
+    }
+
     virtual void OnDraggingAbort() override
     {
         zooming.OnDraggingAbort();

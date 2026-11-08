@@ -27,10 +27,16 @@ public:
 
     void PrepareDC(CDC& dc)
     {
+        PrepareDC(dc, logicalArea);
+    }
+
+    // Maps area (logical coordinates) to the client area.
+    void PrepareDC(CDC& dc, const CRect& area)
+    {
         dc.SetMapMode(MM_ISOTROPIC);
 
-        dc.SetWindowOrg(logicalArea.CenterPoint());
-        dc.SetWindowExt(logicalArea.Size());
+        dc.SetWindowOrg(area.CenterPoint());
+        dc.SetWindowExt(area.Size());
 
         CRect clientRect;
         window.GetClientRect(clientRect);
@@ -56,6 +62,7 @@ public:
         return SetLogicalArea(newLogicalArea);
     }
 
+    // Panning by dragging. The points are in logical coordinates, converted with the mapping at the time of each event.
     void OnDragStart(CPoint point)
     {
         dragStartPoint       = point;
@@ -63,6 +70,13 @@ public:
         isDragging           = true;
     }
 
+    // Follows the mouse while dragging. Returns whether the view moved.
+    bool OnDragging(CPoint point)
+    {
+        return ShiftTo(point);
+    }
+
+    // Stops panning where the view is (it is not moved back).
     void OnDraggingAbort()
     {
         isDragging = false;
@@ -75,9 +89,18 @@ public:
         return shifted;
     }
 
+    // Moves the view so that the point where the drag started comes under the mouse.
     bool ShiftTo(CPoint point)
     {
-        return isDragging ? ShiftLogicalArea(dragStartLogicalArea + (dragStartPoint - point)) : false;
+        if (!isDragging)
+            return false;
+
+        // point was converted with the current mapping, which has already moved during the drag.
+        // Converts it back to the device (client) coordinates, and then to the logical coordinates at the start of the drag,
+        // where dragStartPoint is.
+        const auto devicePoint      = LPtoDP(point, logicalArea);
+        const auto pointAtDragStart = DPtoLP(devicePoint, dragStartLogicalArea);
+        return ShiftLogicalArea(dragStartLogicalArea + (dragStartPoint - pointAtDragStart));
     }
 
 private:
@@ -106,11 +129,27 @@ private:
 
     CPoint DPtoLP(CPoint point)
     {
+        return DPtoLP(point, logicalArea);
+    }
+
+    // Converts point with the mapping that shows area.
+    CPoint DPtoLP(CPoint point, const CRect& area)
+    {
         ASSERT(window.GetSafeHwnd() != nullptr);
 
         CClientDC dc(&window);
-        PrepareDC(dc);
+        PrepareDC(dc, area);
         dc.DPtoLP(&point);
+        return point;
+    }
+
+    CPoint LPtoDP(CPoint point, const CRect& area)
+    {
+        ASSERT(window.GetSafeHwnd() != nullptr);
+
+        CClientDC dc(&window);
+        PrepareDC(dc, area);
+        dc.LPtoDP(&point);
         return point;
     }
 };
