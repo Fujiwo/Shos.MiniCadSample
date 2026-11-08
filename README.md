@@ -1,5 +1,7 @@
 # [C++/MFC] Shos.MiniCadSample
 
+English | [日本語](README.jp.md)
+
 ![Screenshot: figures in the drawing area, the selected line with its markers, the Select tool's cursor showing "distance: 18", and the modeless Figure Attribute dialog](Documents/images/image01.png)
 
 A small 2D CAD application written in **C++20 and MFC**. It draws dots, lines, rectangles and ellipses, and supports selection, undo/redo, zooming and panning, file save/load and clipboard copy/paste.
