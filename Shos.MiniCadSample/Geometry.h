@@ -104,7 +104,8 @@ public:
             return false;
 
         area = areas[0];
-        for (auto index = 1; index < areas.size(); index++) {
+        area.NormalizeRect();
+        for (size_t index = 1; index < areas.size(); index++) {
             auto eachArea = areas[index];
             eachArea.NormalizeRect();
             area.UnionRect(area, eachArea);
@@ -121,9 +122,14 @@ public:
                       (std::min)((std::max)(point.y, area.top ), area.bottom - 1));
     }
 
-    static bool InRect(const CRect& outer, const CRect& inner)
+    // Whether inner is inside outer, including the edges of outer (unlike PtInRect, which excludes right and bottom),
+    // so that a figure touching the edge of a selection rectangle is selected.
+    static bool InRect(CRect outer, CRect inner)
     {
-        return outer.PtInRect(inner.TopLeft()) && outer.PtInRect(inner.BottomRight());
+        outer.NormalizeRect();
+        inner.NormalizeRect();
+        return outer.left <= inner.left && inner.right  <= outer.right &&
+               outer.top  <= inner.top  && inner.bottom <= outer.bottom;
     }
 
     static CRect EnlargeTo(const CRect& rect, CSize size)

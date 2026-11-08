@@ -204,6 +204,23 @@ namespace ShosMiniCadSampleTest
 
             Assert::IsTrue(Geometry::GetArea({ CRect(10, 10, 20, 20), CRect(50, 40, 30, 5) /* not normalized */ }, area));
             Assert::IsTrue(area == CRect(10, 5, 50, 40));
+
+            // The first one is normalized too.
+            Assert::IsTrue(Geometry::GetArea({ CRect(20, 20, 10, 10) }, area));
+            Assert::IsTrue(area == CRect(10, 10, 20, 20));
+        }
+
+        TEST_METHOD(rectangle_in_rectangle)
+        {
+            const CRect outer(10, 10, 100, 100);
+            Assert::IsTrue (Geometry::InRect(outer, CRect( 20,  20,  30,  30)));
+            Assert::IsTrue (Geometry::InRect(outer, CRect( 10,  10, 100, 100))); // Touching all the edges.
+            Assert::IsTrue (Geometry::InRect(outer, CRect( 50,  50, 100, 100))); // Touching the right and bottom.
+            Assert::IsTrue (Geometry::InRect(outer, CRect( 30,  30,  20,  20))); // Not normalized.
+            Assert::IsFalse(Geometry::InRect(outer, CRect(  5,  20,  30,  30)));
+            Assert::IsFalse(Geometry::InRect(outer, CRect( 20,  20, 101,  30)));
+            Assert::IsFalse(Geometry::InRect(outer, CRect( 20,  20,  30, 101)));
+            Assert::IsTrue (Geometry::InRect(CRect(100, 100, 10, 10), CRect(20, 20, 30, 30))); // Outer not normalized.
         }
     };
 }
