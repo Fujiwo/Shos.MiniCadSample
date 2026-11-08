@@ -10,16 +10,19 @@
 #include "MainFrame.h"
 #include "MouseEventTranslator.h"
 
-using namespace Shos::MFCDoubleBuffer;
-
-class View : public
+// The base class. An alias in View, not "using namespace" here, so that the namespace does not leak
+// into every file that includes this header.
 #ifdef SCROLL_VIEW
-    DoubleBufferScrollView
+#define VIEW_BASE Shos::MFCDoubleBuffer::DoubleBufferScrollView
 #else // SCROLL_VIEW
-    DoubleBufferView
-#endif // SCROLL_VIEW 
-    , public MouseEventTranslator::Listener
+#define VIEW_BASE Shos::MFCDoubleBuffer::DoubleBufferView
+#endif // SCROLL_VIEW
+
+class View : public VIEW_BASE, public MouseEventTranslator::Listener
 {
+    using Base = VIEW_BASE;
+#undef VIEW_BASE
+
 #ifdef ZOOMING_VIEW
     Zooming zooming;
 #endif // ZOOMING_VIEW
@@ -53,7 +56,7 @@ protected:
     virtual void OnInitialUpdate() override
     {
 #ifdef SCROLL_VIEW
-        DoubleBufferScrollView::OnInitialUpdate();
+        Base::OnInitialUpdate();
         SetScrollSizes(MM_TEXT, GetDocument().GetSize());
 #endif // SCROLL_VIEW 
 
@@ -78,7 +81,7 @@ protected:
 #ifndef SCROLL_VIEW
     virtual void OnPrepareDC(CDC* dc, CPrintInfo* pInfo = nullptr) override
     {
-        DoubleBufferView::OnPrepareDC(dc, pInfo);
+        Base::OnPrepareDC(dc, pInfo);
         ASSERT_VALID(dc);
 
 #ifdef ZOOMING_VIEW
@@ -125,12 +128,7 @@ protected:
         Update();
 
         if (pHint == nullptr || static_cast<const Hint*>(pHint)->type == Hint::Type::All || static_cast<const Hint*>(pHint)->type == Hint::Type::ViewOnly) {
-            #ifdef SCROLL_VIEW
-            DoubleBufferScrollView
-            #else // SCROLL_VIEW
-            DoubleBufferView
-            #endif // SCROLL_VIEW 
-                                  ::OnUpdate(pSender, lHint, pHint);
+            Base::OnUpdate(pSender, lHint, pHint);
             return;
         }
 
@@ -241,7 +239,7 @@ protected:
             Update();
             Invalidate();
         }
-        return DoubleBufferView::OnMouseWheel(keys, delta, point);
+        return Base::OnMouseWheel(keys, delta, point);
     }
 #endif // ZOOMING_VIEW
 

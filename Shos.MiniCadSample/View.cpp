@@ -8,6 +8,8 @@
 #include "Document.h"
 #include "View.h"
 
+using namespace Shos::MFCDoubleBuffer;
+
 #ifdef SCROLL_VIEW
 IMPLEMENT_DYNCREATE(View, DoubleBufferScrollView)
 #else // SCROLL_VIEW
