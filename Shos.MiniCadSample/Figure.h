@@ -385,8 +385,12 @@ public:
     static std::vector<Figure*> GetRandomFigures(size_t count, const CRect& area)
     {
         std::vector<Figure*> figures;
-        for (size_t counter = 0; counter < count; counter++)
-            figures.push_back(GetRandomFigure(area));
+        figures.reserve(count);
+        for (size_t counter = 0; counter < count; counter++) {
+            auto figure = GetRandomFigure(area);
+            if (figure != nullptr)
+                figures.push_back(figure); // Does not throw: the capacity was reserved.
+        }
         return figures;
     }
 
@@ -419,11 +423,10 @@ private:
             figure = new EllipseFigure(CRect(RandomPosition(area), RandomPosition(area)));
             break;
         default:
-            ASSERT(false);
-            figure = nullptr;
-            break;
+            ASSERT(false); // A kind without a case above.
+            return nullptr;
         }
-        figure->Attribute().SetColor   (RandomColor()                         );
+        figure->Attribute().SetColor   (RandomColor()     );
         figure->Attribute().SetPenWidth(RandomValue(0, 5));
         return figure;
     }
@@ -433,10 +436,11 @@ private:
         return CPoint(RandomValue(area.left, area.right), RandomValue(area.top, area.bottom));
     }
 
+    // A uniformly distributed value in [minimum, maximum].
     static LONG RandomValue(long minimum, long maximum)
     {
-        return minimum + mt() % (maximum - minimum + 1);
-    };
+        return std::uniform_int_distribution<long>(minimum, maximum)(mt);
+    }
 
     static COLORREF RandomColor()
     {
