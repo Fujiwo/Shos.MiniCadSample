@@ -10,6 +10,7 @@ class Document : public CDocument, public Observer<Hint>, public MouseEventTrans
 
     Model          model;
     CommandManager commandManager;
+    bool           isDragging = false; // Whether the current drag started in the area (and so was passed to the command).
 
 public:
     using iterator = Model::iterator;
@@ -74,29 +75,34 @@ public:
             commandManager.OnCursor(point);
     }
 
+    // A drag is passed to the command only if it starts in the area. Once started, it goes on outside the area,
+    // with the point clamped to the area, so that the command always gets the end of the drag
+    // (e.g. a selection rectangle stops at the edge of the area, and is not left on the screen).
     virtual void OnDragStart(UINT keys, CPoint point) override
     {
-        if (IsValid(point))
+        isDragging = IsValid(point);
+        if (isDragging)
             commandManager.OnDragStart(keys, point);
     }
 
     virtual void OnDragging(UINT keys, CPoint point) override
     {
-        if (IsValid(point))
-            commandManager.OnDragging(keys, point);
-        else
-            commandManager.OnDraggingAbort();
+        if (isDragging)
+            commandManager.OnDragging(keys, Geometry::Clamp(point, GetArea()));
     }
 
     virtual void OnDraggingAbort() override
     {
+        isDragging = false;
         commandManager.OnDraggingAbort();
     }
 
     virtual void OnDragEnd(UINT keys, CPoint point) override
     {
-        if (IsValid(point))
-            commandManager.OnDragEnd(keys, point);
+        if (isDragging) {
+            isDragging = false;
+            commandManager.OnDragEnd(keys, Geometry::Clamp(point, GetArea()));
+        }
     }
 
 protected:

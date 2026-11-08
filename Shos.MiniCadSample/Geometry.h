@@ -1,6 +1,7 @@
 #pragma once
 
 #include <afx.h>
+#include <algorithm>
 #include <vector>
 
 class Geometry
@@ -109,6 +110,15 @@ public:
             area.UnionRect(area, eachArea);
         }
         return true;
+    }
+
+    // The nearest point to point in area, where area includes left and top but not right and bottom (as PtInRect).
+    // area must not be empty.
+    static CPoint Clamp(CPoint point, const CRect& area)
+    {
+        ASSERT(area.Width() > 0 && area.Height() > 0);
+        return CPoint((std::min)((std::max)(point.x, area.left), area.right  - 1),
+                      (std::min)((std::max)(point.y, area.top ), area.bottom - 1));
     }
 
     static bool InRect(const CRect& outer, const CRect& inner)

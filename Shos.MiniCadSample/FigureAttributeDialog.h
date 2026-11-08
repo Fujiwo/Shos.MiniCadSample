@@ -26,8 +26,15 @@ public:
 
 protected:
     virtual void DoDataExchange(CDataExchange* pDX) override;
-    virtual int OnCommand(WPARAM wParam, LPARAM lParam) override;
-    
+    virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam) override;
+
+    // Enter: applies the pen width. The modeless dialog must not be ended (EndDialog) by CDialog::OnOK.
+    virtual void OnOK() override
+    {
+        SavePenWidth();
+    }
+
+    // The close button and Esc (both come as IDCANCEL): hides the dialog, so that it can be shown again.
     virtual void OnCancel() override
     {
         ShowWindow(SW_HIDE);

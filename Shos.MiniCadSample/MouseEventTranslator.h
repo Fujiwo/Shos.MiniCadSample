@@ -44,7 +44,7 @@ public:
         void Trace(LPCTSTR methodName, CPoint point)
         {
             TraceMethodName(methodName);
-            TRACE(_T("(x: %d, y: %d)\n"), methodName, point.x, point.y);
+            TRACE(_T("(x: %d, y: %d)\n"), point.x, point.y);
         }
 
         void Trace(LPCTSTR methodName, UINT keys, CPoint point)
@@ -109,12 +109,11 @@ public:
         points.push_back(point);
     }
 
+    // The right button is only for dragging (panning); a right click is not a click.
     void OnRButtonUp(UINT /* keys */, CPoint point)
     {
         if (isDragging)
             OnDragEnd(MK_RBUTTON, point);
-        else
-            OnClick(point);
         Clear();
     }
 

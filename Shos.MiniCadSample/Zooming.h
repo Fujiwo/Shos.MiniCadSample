@@ -34,12 +34,15 @@ public:
         dc.SetViewportExt(clientRect.Size());
     }
 
+    // point: the position of the mouse in screen coordinates (as WM_MOUSEWHEEL gives it).
+    // Zooms with the point under the mouse as the center.
     bool OnMouseWheel(UINT keys, short delta, CPoint point)
     {
         if ((keys & MK_CONTROL) == 0)
             return false;
 
-        DPtoLP(point);
+        window.ScreenToClient(&point);
+        point = DPtoLP(point);
 
         const auto deltaValue     = delta / (double)WHEEL_DELTA;
         const auto denominator    = 10.0;
@@ -68,12 +71,13 @@ public:
 
     bool OnDragEnd(CPoint point)
     {
-        return ShiftTo(point);
+        const auto shifted = ShiftTo(point);
+        isDragging = false;
+        return shifted;
     }
 
     bool ShiftTo(CPoint point)
     {
-        auto newLogicalArea = dragStartLogicalArea + (dragStartPoint - point);
         return isDragging ? ShiftLogicalArea(dragStartLogicalArea + (dragStartPoint - point)) : false;
     }
 

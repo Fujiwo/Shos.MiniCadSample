@@ -56,17 +56,18 @@ void FigureAttributeDialog::LoadPenWidth(CDataExchange* pDX)
     }
 }
 
-int FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM /* lParam */)
+BOOL FigureAttributeDialog::OnCommand(WPARAM wParam, LPARAM lParam)
 {
     switch (LOWORD(wParam)) {
     case IDC_COLOR_BUTTON    :
         SaveColor();
-        break;
+        return TRUE;
     case IDC_PEN_WIDTH_BUTTON:
         SavePenWidth();
-        break;
+        return TRUE;
     }
-    return 0;
+    // The others, including IDOK (Enter) and IDCANCEL (the close button, Esc), go to OnOK / OnCancel.
+    return CDialogEx::OnCommand(wParam, lParam);
 }
 
 IMPLEMENT_DYNAMIC(FigureAttributeDialog, CDialogEx)
