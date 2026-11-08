@@ -13,6 +13,9 @@
 //     1. キャッシュが無効なら、背景色で塗りつぶしてから Layer 1 を描き、キャッシュを作り直す
 //     2. 作業用ビットマップにキャッシュをコピーし、その上に Layer 2 を描く
 //     3. 作業用ビットマップを画面に一度だけ転送する (途中経過が見えないので、ちらつかない)
+//   1. と 2. は、再描画が必要な範囲 (クリップ ボックス) だけを扱う。
+//   キャッシュと作業用ビットマップは、クライアント領域の大きさが変わったときだけ作り直す。
+//   ビットマップを作れなかったとき (メモリ不足など) は、画面に直接描く (ちらつくが、表示は正しい)。
 //
 // ■ 使い方
 //   ビューの基底クラスを DoubleBufferView (CView 版) または DoubleBufferScrollView (CScrollView 版) にし、
@@ -35,6 +38,9 @@ class DoubleBuffer
 {
     bool     isCacheValid    = false;                       // キャッシュの内容が最新かどうか
     CBitmap  cache;                                         // Layer 1 を描いたビットマップ (クライアント領域の大きさ)
+    CSize    cacheSize;                                     // cache の大きさ
+    CBitmap  work;                                          // Layer 1 と Layer 2 を合成する作業用ビットマップ (同上)
+    CSize    workSize;                                      // work の大きさ
     CPoint   cacheOrigin;                                   // キャッシュを作ったときのスクロール位置 (デバイス座標)
     COLORREF backgroundColor = ::GetSysColor(COLOR_WINDOW); // Layer 1 を描く前に塗りつぶす色
     CView&   view;                                          // 描画対象のビュー (このオブジェクト自身の派生先)
@@ -135,35 +141,34 @@ protected:
             if (clipBox != clientRect)
                 view.Invalidate(FALSE);
         }
-        if (!UpdateCache(dc, clientRect))
+        if (!UpdateCache(dc, clientRect) || !PrepareBitmap(work, workSize, dc, clientRect.Size())) {
+            DrawDirectly(dc, clipBox);
             return;
+        }
 
         CDC cacheDC;
         cacheDC.CreateCompatibleDC(&dc);
         GdiObjectSelector cacheSelector(cacheDC, cache);
 
-        // 作業用ビットマップ (再描画が必要な範囲の大きさ) を用意する
-        const auto [width, height] = clipBox.Size();
-        CDC     workDC;
-        CBitmap workBitmap;
+        // 作業用ビットマップは、キャッシュと同じくクライアント領域の大きさ (座標もクライアント座標のまま使う)
+        CDC workDC;
         workDC.CreateCompatibleDC(&dc);
-        if (!workBitmap.CreateCompatibleBitmap(&dc, width, height))
-            return;
-        GdiObjectSelector workSelector(workDC, workBitmap);
+        GdiObjectSelector workSelector(workDC, work);
+
+        const auto [width, height] = clipBox.Size();
 
         // 1. キャッシュ (Layer 1) のうち、再描画が必要な範囲を作業用ビットマップにコピー
-        workDC.BitBlt(0, 0, width, height, &cacheDC, clipBox.left, clipBox.top, SRCCOPY);
+        workDC.BitBlt(clipBox.left, clipBox.top, width, height, &cacheDC, clipBox.left, clipBox.top, SRCCOPY);
 
-        // 2. その上に Layer 2 を描く
-        //    作業用ビットマップの左上は clipBox の左上に当たるので、その分だけ原点をずらす
+        // 2. その上に Layer 2 を描く (再描画が必要な範囲の外には描かない)
         const auto savedDC = workDC.SaveDC();
+        workDC.IntersectClipRect(&clipBox); // OnPrepareDC の前なので、デバイス座標で指定できる
         view.OnPrepareDC(&workDC);
-        workDC.OffsetViewportOrg(-clipBox.left, -clipBox.top);
         OnDrawLayer2(workDC);
         workDC.RestoreDC(savedDC);
 
         // 3. 合成した結果を画面へ一度に転送する
-        dc.BitBlt(clipBox.left, clipBox.top, width, height, &workDC, 0, 0, SRCCOPY);
+        dc.BitBlt(clipBox.left, clipBox.top, width, height, &workDC, clipBox.left, clipBox.top, SRCCOPY);
     }
 
     // キャッシュの内容が依存するスクロール位置 (デバイス座標) を返す
@@ -187,9 +192,8 @@ private:
         if (isCacheValid)
             return true;
 
-        // クライアント領域の大きさは変わっている可能性があるので、ビットマップごと作り直す
-        cache.DeleteObject();
-        if (!cache.CreateCompatibleBitmap(&dc, clientRect.Width(), clientRect.Height()))
+        // クライアント領域の大きさが変わっていたら、ビットマップごと作り直す
+        if (!PrepareBitmap(cache, cacheSize, dc, clientRect.Size()))
             return false;
 
         CDC memoryDC;
@@ -208,6 +212,33 @@ private:
         cacheOrigin  = GetCacheOrigin();
         isCacheValid = true;
         return true;
+    }
+
+    // bitmap が size の大きさで作成済みなら、そのまま使う。そうでなければ作り直す
+    // 戻り値: bitmap が使える状態なら true (作れなかったときは false。bitmap は空になる)
+    [[nodiscard]] static bool PrepareBitmap(CBitmap& bitmap, CSize& bitmapSize, CDC& dc, CSize size)
+    {
+        if (bitmap.GetSafeHandle() != nullptr && bitmapSize == size)
+            return true;
+
+        bitmap.DeleteObject();
+        bitmapSize = CSize();
+        if (!bitmap.CreateCompatibleBitmap(&dc, size.cx, size.cy))
+            return false;
+        bitmapSize = size;
+        return true;
+    }
+
+    // ビットマップを作れなかったときの代替: 画面の DC に直接描く
+    void DrawDirectly(CDC& dc, const CRect& clipBox)
+    {
+        dc.FillSolidRect(&clipBox, backgroundColor); // OnEraseBkgnd で消去していないので、ここで消す
+
+        const auto savedDC = dc.SaveDC();
+        view.OnPrepareDC(&dc);
+        OnDrawLayer1(dc);
+        OnDrawLayer2(dc);
+        dc.RestoreDC(savedDC);
     }
 };
 
